@@ -1,0 +1,30 @@
+{
+  "name": "histori",
+  "version": "0.0.1",
+  "description": "Local-first observability for your AI coding sessions.",
+  "license": "MIT",
+  "author": "Oliyad Bekele",
+  "type": "module",
+  "bin": {
+    "histori": "./dist/bin.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsx src/bin.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@histori/daemon": "workspace:*",
+    "@histori/hooks": "workspace:*",
+    "@histori/shared": "workspace:*",
+    "cac": "^6.7.14",
+    "kleur": "^4.1.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
