@@ -1,8 +1,11 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, openSync, writeFileSync, existsSync, readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join } from "node:path";
 import { homedir } from "node:os";
+import { createRequire } from "node:module";
 import kleur from "kleur";
+
+const requireFn = createRequire(import.meta.url);
 
 const HISTORI_HOME = join(homedir(), ".histori");
 const PID_FILE = join(HISTORI_HOME, "daemon.pid");
@@ -19,10 +22,9 @@ export function up() {
     }
   }
 
-  // For v0.1 we resolve the daemon entrypoint relative to this CLI build.
+  // For v0.1 we resolve the daemon entrypoint via workspace package resolution.
   // Once published, the daemon is bundled and we'll point at the bundled file.
-  const here = dirname(new URL(import.meta.url).pathname.replace(/^\//, ""));
-  const daemonEntry = join(here, "..", "..", "..", "daemon", "src", "index.ts");
+  const daemonEntry = requireFn.resolve("@histori/daemon");
 
   const out = openSync(LOG_FILE, "a");
   const child = spawn("npx", ["tsx", daemonEntry], {

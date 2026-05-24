@@ -1,8 +1,10 @@
 import { mkdirSync, existsSync, readFileSync, writeFileSync, copyFileSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
+import { createRequire } from "node:module";
 import kleur from "kleur";
+
+const requireFn = createRequire(import.meta.url);
 
 const HOOK_KINDS = [
   "SessionStart",
@@ -26,8 +28,7 @@ export function install() {
   mkdirSync(claudeDir, { recursive: true });
 
   // Drop the capture script into ~/.histori/hooks/capture.cjs
-  const here = dirname(fileURLToPath(import.meta.url));
-  const srcCapture = join(here, "..", "..", "..", "hooks", "capture.cjs");
+  const srcCapture = requireFn.resolve("@histori/hooks/capture.cjs");
   copyFileSync(srcCapture, hookPath);
 
   // Merge hooks into Claude Code's settings.json

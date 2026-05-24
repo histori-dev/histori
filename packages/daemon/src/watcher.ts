@@ -42,19 +42,19 @@ async function ingest(db: Db, ev: any) {
   const sessionId = ev.payload?.session_id ?? ev.payload?.sessionId ?? "unknown";
   const ts = new Date(ev.ts ?? Date.now());
 
-  if (ev.kind === "SessionStart") {
-    await db
-      .insert(sessions)
-      .values({
-        id: sessionId,
-        startedAt: ts,
-        cwd: ev.cwd ?? "",
-        repo: null,
-        branch: null,
-        model: ev.payload?.model ?? null,
-      })
-      .onConflictDoNothing();
-  }
+  // Always upsert a session row so foreign-key constraints hold even when
+  // events arrive before SessionStart (or SessionStart is missing entirely).
+  await db
+    .insert(sessions)
+    .values({
+      id: sessionId,
+      startedAt: ts,
+      cwd: ev.cwd ?? "",
+      repo: null,
+      branch: null,
+      model: ev.payload?.model ?? null,
+    })
+    .onConflictDoNothing();
 
   await db.insert(events).values({
     id: nanoid(),
