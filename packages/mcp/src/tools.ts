@@ -1,9 +1,101 @@
 import { z } from "zod";
+import { nanoid } from "nanoid";
 import { desc, eq, like, gte, inArray, sql } from "drizzle-orm";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { sessions, events, rules, fileTouches, type Db } from "@histori/db";
+import { sessions, events, rules, fileTouches, memories, type Db } from "@histori/db";
 
 export function registerTools(server: McpServer, db: Db) {
+  server.tool(
+    "recall_memories",
+    "Search distilled knowledge from past coding sessions: lessons learned, bugs and their fixes, technical decisions and why they were made. Use this FIRST when starting work — it returns conclusions, not raw logs. For full session detail use recall_sessions.",
+    {
+      query: z.string().describe("Topic, error message, file, library, or decision to search for"),
+      limit: z.number().int().min(1).max(20).default(5).describe("Max memories to return"),
+    },
+    async ({ query, limit }) => {
+      let ids: string[] = [];
+      try {
+        type FtsRow = { memory_id: string };
+        const ftsRows = db.$client
+          .prepare(
+            `SELECT memory_id FROM memories_fts
+             WHERE memories_fts MATCH ?
+             ORDER BY rank LIMIT ?`,
+          )
+          .all(query, limit) as FtsRow[];
+        ids = ftsRows.map((r) => r.memory_id);
+      } catch {
+        // FTS5 syntax error — fall back to LIKE
+        const pattern = `%${query.toLowerCase()}%`;
+        const rows = await db
+          .select({ id: memories.id })
+          .from(memories)
+          .where(like(sql`lower(${memories.title} || ' ' || ${memories.content})`, pattern))
+          .orderBy(desc(memories.createdAt))
+          .limit(limit);
+        ids = rows.map((r) => r.id);
+      }
+
+      if (!ids.length) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: "No matching memories. Try recall_sessions for raw session search.",
+            },
+          ],
+        };
+      }
+
+      const rows = await db.select().from(memories).where(inArray(memories.id, ids));
+      const byId = new Map(rows.map((r) => [r.id, r]));
+      const ordered = ids.map((id) => byId.get(id)).filter((r) => r != null);
+
+      const text = ordered
+        .map((m) =>
+          [
+            `# ${m.title}`,
+            `${m.kind === "lesson" ? "saved lesson" : "session memory"}${m.project ? ` | ${m.project}` : ""} | ${m.createdAt.toISOString().slice(0, 10)}${m.sessionId ? ` | session: ${m.sessionId}` : ""}`,
+            m.content,
+          ].join("\n"),
+        )
+        .join("\n\n---\n\n");
+
+      return { content: [{ type: "text" as const, text }] };
+    },
+  );
+
+  server.tool(
+    "save_memory",
+    "Save a lesson, gotcha, or decision to the user's permanent knowledge base so future sessions can recall it. Use when you discover something non-obvious worth remembering: a tricky bug's root cause, a project constraint, a decision and its rationale.",
+    {
+      title: z.string().max(120).describe("Short specific title"),
+      content: z.string().describe("The lesson or decision. Be concrete: name files, errors, versions, and the why."),
+      project: z
+        .string()
+        .optional()
+        .describe("Project or repo this applies to (omit if general)"),
+    },
+    async ({ title, content, project }) => {
+      const id = nanoid();
+      await db.insert(memories).values({
+        id,
+        sessionId: null,
+        kind: "lesson",
+        title,
+        content,
+        project: project ?? null,
+        createdAt: new Date(),
+      });
+      db.$client
+        .prepare("INSERT INTO memories_fts(memory_id, content) VALUES (?, ?)")
+        .run(id, `${title}\n${content}`);
+      return {
+        content: [{ type: "text" as const, text: `Memory saved: "${title}" (${id})` }],
+      };
+    },
+  );
+
   server.tool(
     "recall_sessions",
     "Search your past coding sessions by topic, file path, error message, or keyword. Use this before starting work to find previous solutions to similar problems.",

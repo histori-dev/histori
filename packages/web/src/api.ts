@@ -51,6 +51,16 @@ export type Rule = {
   updatedAt: number;
 };
 
+export type Memory = {
+  id: string;
+  sessionId: string | null;
+  kind: "session" | "lesson";
+  title: string;
+  content: string;
+  project: string | null;
+  createdAt: number;
+};
+
 async function del(path: string): Promise<void> {
   const res = await fetch(path, { method: "DELETE" });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -62,4 +72,7 @@ export const api = {
   search: (q: string) => get<Session[]>(`/search?q=${encodeURIComponent(q)}`),
   rules: () => get<Rule[]>("/rules"),
   deleteRule: (id: string) => del(`/rules/${id}`),
+  memories: (q?: string) =>
+    get<Memory[]>(q ? `/memories?q=${encodeURIComponent(q)}` : "/memories"),
+  deleteMemory: (id: string) => del(`/memories/${id}`),
 };

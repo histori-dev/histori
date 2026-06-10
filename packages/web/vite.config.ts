@@ -27,6 +27,7 @@ export default defineConfig({
       "/sessions": target,
       "/search": target,
       "/rules": target,
+      "/memories": target,
       "/health": target,
     },
   },

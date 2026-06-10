@@ -76,3 +76,25 @@ export const rules = sqliteTable("rules", {
     .default(sql`(unixepoch() * 1000)`)
     .notNull(),
 });
+
+// Distilled knowledge: what was learned, not just what happened.
+// kind = 'session' (auto-distilled when a session goes idle)
+//      | 'lesson'  (explicitly saved by the agent via the save_memory MCP tool)
+export const memories = sqliteTable(
+  "memories",
+  {
+    id: text("id").primaryKey(),
+    sessionId: text("session_id").references(() => sessions.id, {
+      onDelete: "set null",
+    }),
+    kind: text("kind").notNull(),
+    title: text("title").notNull(),
+    content: text("content").notNull(),
+    project: text("project"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => ({
+    createdIdx: index("memories_created_idx").on(t.createdAt),
+    projectIdx: index("memories_project_idx").on(t.project),
+  }),
+);

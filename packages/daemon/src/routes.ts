@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { desc, eq, inArray } from "drizzle-orm";
-import { sessions, events, fileTouches, rules, type Db } from "@histori/db";
+import { sessions, events, fileTouches, rules, memories, type Db } from "@histori/db";
 
 export function routes(db: Db) {
   const app = new Hono();
@@ -68,6 +68,43 @@ export function routes(db: Db) {
       console.error("[histori] search error:", err);
       return c.json([]);
     }
+  });
+
+  app.get("/memories", async (c) => {
+    const q = c.req.query("q")?.trim();
+    if (!q) {
+      const rows = await db
+        .select()
+        .from(memories)
+        .orderBy(desc(memories.createdAt))
+        .limit(200);
+      return c.json(rows);
+    }
+    try {
+      type FtsRow = { memory_id: string };
+      const ftsRows = db.$client
+        .prepare(
+          `SELECT memory_id FROM memories_fts
+           WHERE memories_fts MATCH ?
+           ORDER BY rank LIMIT 50`,
+        )
+        .all(q) as FtsRow[];
+      if (!ftsRows.length) return c.json([]);
+      const ids = ftsRows.map((r) => r.memory_id);
+      const rows = await db.select().from(memories).where(inArray(memories.id, ids));
+      const byId = new Map(rows.map((r) => [r.id, r]));
+      return c.json(ids.map((id) => byId.get(id)).filter(Boolean));
+    } catch (err) {
+      console.error("[histori] memories search error:", err);
+      return c.json([]);
+    }
+  });
+
+  app.delete("/memories/:id", async (c) => {
+    const id = c.req.param("id");
+    await db.delete(memories).where(eq(memories.id, id));
+    db.$client.prepare("DELETE FROM memories_fts WHERE memory_id = ?").run(id);
+    return c.json({ ok: true });
   });
 
   app.get("/rules", async (c) => {

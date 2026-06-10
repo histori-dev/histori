@@ -8,6 +8,7 @@ import { PORT_CANDIDATES, PORT_FILE, HISTORI_HOME } from "@histori/shared";
 import { openDb } from "@histori/db";
 import { startWatcher } from "./watcher.js";
 import { startGitWatcher } from "./git-watcher.js";
+import { startDistiller } from "./distiller.js";
 import { routes } from "./routes.js";
 
 const db = openDb();
@@ -61,6 +62,7 @@ if (existsSync(join(webDist, "index.html"))) {
 
 startWatcher(db);
 startGitWatcher(db);
+startDistiller(db);
 console.log(`[histori] watching ${HISTORI_HOME}/events.ndjson`);
 
 // Windows reserves random port blocks (Hyper-V) — walk the candidate list

@@ -66,6 +66,9 @@ export default function SessionsPage() {
 
         <nav className="flex gap-4 text-sm shrink-0">
           <span className="text-zinc-300">Sessions</span>
+          <Link to="/memories" className="text-zinc-500 hover:text-zinc-300 transition-colors">
+            Memories
+          </Link>
           <Link to="/rules" className="text-zinc-500 hover:text-zinc-300 transition-colors">
             Rules
           </Link>

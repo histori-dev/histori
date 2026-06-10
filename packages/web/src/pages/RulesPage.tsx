@@ -37,6 +37,9 @@ export default function RulesPage() {
           <Link to="/" className="text-zinc-500 hover:text-zinc-300 transition-colors">
             Sessions
           </Link>
+          <Link to="/memories" className="text-zinc-500 hover:text-zinc-300 transition-colors">
+            Memories
+          </Link>
           <span className="text-zinc-300">Rules</span>
         </nav>
       </header>
