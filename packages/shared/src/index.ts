@@ -47,9 +47,8 @@ export const PORT_FILE =
 // This builds a forgiving fallback: OR of quoted prefix terms — bm25 still
 // ranks docs matching more terms higher.
 export function looseFtsQuery(raw: string): string {
-  const terms = raw
-    .split(/\s+/)
-    .map((t) => t.replace(/[^\p{L}\p{N}_]/gu, ""))
-    .filter(Boolean);
+  // Split on any non-word run — "simulated-codex" must become two terms,
+  // because unicode61 tokenizes the indexed text the same way.
+  const terms = raw.split(/[^\p{L}\p{N}_]+/u).filter(Boolean);
   return terms.map((t) => `"${t}"*`).join(" OR ");
 }

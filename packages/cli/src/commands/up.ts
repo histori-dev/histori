@@ -25,12 +25,15 @@ export function up() {
   // For v0.1 we resolve the daemon entrypoint via workspace package resolution.
   // Once published, the daemon is bundled and we'll point at the bundled file.
   const daemonEntry = requireFn.resolve("@histori/daemon");
+  // Spawn node directly (no npx, no shell) — the cmd.exe→npx→node chain on
+  // Windows drops the stdio redirect, leaving daemon.log permanently empty.
+  const tsxCli = requireFn.resolve("tsx/cli");
 
   const out = openSync(LOG_FILE, "a");
-  const child = spawn("npx", ["tsx", daemonEntry], {
+  const child = spawn(process.execPath, [tsxCli, daemonEntry], {
     detached: true,
     stdio: ["ignore", out, out],
-    shell: process.platform === "win32",
+    windowsHide: true,
   });
   child.unref();
 
