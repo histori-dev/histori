@@ -33,7 +33,7 @@ Everything stays on your machine. No cloud, no API key, no account.
 > Requires Node ≥ 22, pnpm, and [Claude Code](https://claude.com/claude-code). npm package coming soon — for now, run from source:
 
 ```bash
-git clone https://github.com/oli-yad13/histori.git
+git clone https://github.com/histori-dev/histori.git
 cd histori
 pnpm install
 pnpm --filter @histori/web build

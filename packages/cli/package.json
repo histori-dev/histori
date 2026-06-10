@@ -15,10 +15,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/oli-yad13/histori.git"
+    "url": "git+https://github.com/histori-dev/histori.git"
   },
-  "homepage": "https://github.com/oli-yad13/histori#readme",
-  "bugs": "https://github.com/oli-yad13/histori/issues",
+  "homepage": "https://github.com/histori-dev/histori#readme",
+  "bugs": "https://github.com/histori-dev/histori/issues",
   "keywords": [
     "claude-code",
     "mcp",
