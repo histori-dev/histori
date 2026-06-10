@@ -6,6 +6,7 @@ import {
   createReadStream,
   existsSync,
   readFileSync,
+  writeFileSync,
 } from "node:fs";
 import { basename, join } from "node:path";
 import { createInterface } from "node:readline";
@@ -17,16 +18,34 @@ import { sessions, events, fileTouches, rules, type Db } from "@histori/db";
 import chokidar from "chokidar";
 
 const FILE = join(HISTORI_HOME, "events.ndjson");
+// Persisted read offset — events appended while the daemon is down are
+// picked up on the next start instead of being skipped forever.
+const OFFSET_FILE = join(HISTORI_HOME, "events.offset");
 let lastSize = 0;
+
+function loadOffset(size: number): number {
+  try {
+    const saved = Number(readFileSync(OFFSET_FILE, "utf8").trim());
+    // If the file shrank (rotated/cleared), start over from the beginning.
+    if (Number.isInteger(saved) && saved >= 0 && saved <= size) return saved;
+  } catch {
+    // No offset yet — first run after install/upgrade. Start at the current
+    // end so we don't replay history that may already be in the database.
+  }
+  return size;
+}
 
 export function startWatcher(db: Db) {
   mkdirSync(HISTORI_HOME, { recursive: true });
   closeSync(openSync(FILE, "a"));
-  lastSize = statSync(FILE).size;
+  lastSize = loadOffset(statSync(FILE).size);
 
   chokidar
     .watch(FILE, { persistent: true, usePolling: false })
     .on("change", () => void readNew(db));
+
+  // Catch up on anything written while the daemon was down
+  void readNew(db);
 }
 
 async function readNew(db: Db) {
@@ -45,6 +64,12 @@ async function readNew(db: Db) {
     } catch (err) {
       console.error("[histori] failed to parse event:", err);
     }
+  }
+
+  try {
+    writeFileSync(OFFSET_FILE, String(size));
+  } catch {
+    // Non-fatal — worst case we re-read a batch on restart
   }
 }
 

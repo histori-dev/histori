@@ -50,10 +50,7 @@ export function watch(dir?: string) {
   saveRoots(roots);
 
   console.log(kleur.green("✓") + ` Watching: ${repoPath}`);
-  console.log(
-    kleur.gray("  Restart daemon to apply: ") +
-      kleur.cyan("histori down && histori up"),
-  );
+  console.log(kleur.gray("  The daemon picks this up within a minute."));
 }
 
 export function unwatch(dir?: string) {
@@ -67,8 +64,5 @@ export function unwatch(dir?: string) {
   saveRoots(roots);
 
   console.log(kleur.green("✓") + ` Removed: ${repoPath}`);
-  console.log(
-    kleur.gray("  Restart daemon to apply: ") +
-      kleur.cyan("histori down && histori up"),
-  );
+  console.log(kleur.gray("  The daemon picks this up within a minute."));
 }

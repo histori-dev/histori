@@ -24,11 +24,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/sessions": target,
-      "/search": target,
-      "/rules": target,
-      "/memories": target,
-      "/health": target,
+      "/api": target,
     },
   },
 });

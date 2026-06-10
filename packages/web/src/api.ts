@@ -37,8 +37,10 @@ export type SessionDetail = {
   files: FileTouch[];
 };
 
+const API = "/api";
+
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(path);
+  const res = await fetch(API + path);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json() as Promise<T>;
 }
@@ -62,7 +64,7 @@ export type Memory = {
 };
 
 async function del(path: string): Promise<void> {
-  const res = await fetch(path, { method: "DELETE" });
+  const res = await fetch(API + path, { method: "DELETE" });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
 }
 

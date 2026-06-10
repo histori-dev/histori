@@ -14,7 +14,9 @@ import { routes } from "./routes.js";
 const db = openDb();
 const app = new Hono();
 app.use("*", cors());
-app.route("/", routes(db));
+// API lives under /api so SPA routes (/sessions, /memories, /rules) can be
+// hard-refreshed in the browser without colliding with JSON endpoints.
+app.route("/api", routes(db));
 
 // Serve the built web dashboard if it exists
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -54,7 +56,7 @@ if (existsSync(join(webDist, "index.html"))) {
 .box{max-width:480px;text-align:center}h1{color:#f4f4f5;font-size:1.25rem}code{background:#18181b;padding:2px 6px;border-radius:4px;color:#e4e4e7}</style>
 </head><body><div class="box"><h1>histori dashboard not built</h1>
 <p>Run <code>pnpm --filter @histori/web build</code> from the repo root,<br>then restart: <code>histori down &amp;&amp; histori up</code>.</p>
-<p style="margin-top:1.5rem;font-size:.875rem">API is live — <a href="/health" style="color:#60a5fa">/health</a> · <a href="/sessions" style="color:#60a5fa">/sessions</a></p>
+<p style="margin-top:1.5rem;font-size:.875rem">API is live — <a href="/api/health" style="color:#60a5fa">/api/health</a> · <a href="/api/sessions" style="color:#60a5fa">/api/sessions</a></p>
 </div></body></html>`,
     ),
   );

@@ -22,13 +22,21 @@ cli
 cli
   .command("unwatch [dir]", "Stop tracking a git repo")
   .action(unwatch);
-cli.command("rules", "List your saved CLAUDE.md rules").action(rulesList);
 cli
-  .command("rules sync [dir]", "Import CLAUDE.md from a directory into the rules registry")
-  .action(rulesSync);
-cli
-  .command("rules rm <id>", "Remove a rule by ID prefix")
-  .action(rulesRm);
+  .command(
+    "rules [action] [target]",
+    "Manage CLAUDE.md rules: `rules` lists, `rules sync [dir]` imports, `rules rm <id>` removes",
+  )
+  .action(async (action?: string, target?: string) => {
+    // cac can't route multi-word commands, so dispatch manually
+    if (!action) return rulesList();
+    if (action === "sync") return rulesSync(target);
+    if (action === "rm") return rulesRm(target);
+    console.error(
+      kleur.red(`Unknown rules action: ${action} (use sync, rm, or no action to list)`),
+    );
+    process.exit(1);
+  });
 
 cli.help();
 cli.version("0.0.1");

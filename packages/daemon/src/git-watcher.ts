@@ -16,24 +16,47 @@ export function loadRoots(): string[] {
   }
 }
 
+const watchers = new Map<string, ReturnType<typeof chokidar.watch>>();
+
 export function startGitWatcher(db: Db): void {
-  const roots = loadRoots();
-  for (const root of roots) watchRepo(root, db);
-  if (roots.length > 0) {
-    console.log(`[histori] git watcher: ${roots.length} repo(s)`);
+  reconcile(db);
+  // Re-read git-roots.json periodically so `histori watch <dir>` takes
+  // effect without restarting the daemon.
+  setInterval(() => reconcile(db), 60_000);
+}
+
+function reconcile(db: Db): void {
+  const roots = new Set(loadRoots());
+
+  for (const [path, watcher] of watchers) {
+    if (!roots.has(path)) {
+      void watcher.close();
+      watchers.delete(path);
+      console.log(`[histori] git watcher: stopped ${path}`);
+    }
+  }
+
+  for (const root of roots) {
+    if (!watchers.has(root)) watchRepo(root, db);
   }
 }
 
 function watchRepo(repoPath: string, db: Db): void {
   const commitMsgFile = join(repoPath, ".git", "COMMIT_EDITMSG");
   if (!existsSync(commitMsgFile)) {
-    console.warn(`[histori] skipping (not a git repo): ${repoPath}`);
-    return;
+    // Repo may not have a commit yet — chokidar can watch a missing path,
+    // but skip loudly if there's no .git directory at all.
+    if (!existsSync(join(repoPath, ".git"))) {
+      console.warn(`[histori] skipping (not a git repo): ${repoPath}`);
+      return;
+    }
   }
-  chokidar
-    .watch(commitMsgFile, { persistent: true, usePolling: false })
+  const watcher = chokidar
+    .watch(commitMsgFile, { persistent: true, usePolling: false, ignoreInitial: true })
+    .on("add", () => void onCommit(repoPath, db))
     .on("change", () => void onCommit(repoPath, db));
-  console.log(`[histori]   ${repoPath}`);
+  watchers.set(repoPath, watcher);
+  console.log(`[histori] git watcher: ${repoPath}`);
 }
 
 async function onCommit(repoPath: string, db: Db): Promise<void> {
