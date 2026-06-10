@@ -1,6 +1,5 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
-import { cors } from "hono/cors";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,7 +12,9 @@ import { routes } from "./routes.js";
 
 const db = openDb();
 const app = new Hono();
-app.use("*", cors());
+// No CORS on purpose: the dashboard is served same-origin by this daemon
+// (vite dev proxies /api). A wildcard here would let any website the user
+// visits read their entire prompt history off localhost.
 // API lives under /api so SPA routes (/sessions, /memories, /rules) can be
 // hard-refreshed in the browser without colliding with JSON endpoints.
 app.route("/api", routes(db));
