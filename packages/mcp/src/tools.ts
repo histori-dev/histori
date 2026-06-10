@@ -221,7 +221,7 @@ export function registerTools(server: McpServer, db: Db) {
 
   server.tool(
     "cost_summary",
-    "Get your AI coding cost and token usage for the last N days.",
+    "Get your AI coding token usage and its API-equivalent dollar value for the last N days. Note: on subscription plans (Pro/Max) the user pays a flat fee — the dollar figure is what the usage would cost at API prices, not what they were charged.",
     {
       days: z
         .number()
@@ -248,7 +248,7 @@ export function registerTools(server: McpServer, db: Db) {
         content: [
           {
             type: "text" as const,
-            text: `Last ${days} days: ${rows.length} sessions | ${totalTokens.toLocaleString()} tokens | $${totalCost.toFixed(4)}`,
+            text: `Last ${days} days: ${rows.length} sessions | ${totalTokens.toLocaleString()} tokens | $${totalCost.toFixed(2)} API-equivalent value`,
           },
         ],
       };

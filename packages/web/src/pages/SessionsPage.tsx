@@ -31,7 +31,7 @@ function shortDir(cwd: string) {
 
 function shortModel(model: string | null) {
   if (!model) return "—";
-  return model.replace(/^claude-/, "").replace(/-\d{8}$/, "");
+  return model.replace(/^claude-/, "").replace(/-\d{8}/, "");
 }
 
 /** Project identity: repo if known, else the last path segment of cwd. */
@@ -305,7 +305,15 @@ export default function SessionsPage() {
                 }
               />
               <StatCard label="tokens" value={fmtTokens(stats.tokens)} />
-              <StatCard label="cost" value={`$${stats.cost.toFixed(2)}`} accent="text-warm" />
+              <div
+                title="What this usage would cost at API prices. On a subscription plan (Pro/Max) you pay a flat fee — read this as the value you extracted."
+              >
+                <StatCard
+                  label="est. API value"
+                  value={`$${stats.cost.toFixed(2)}`}
+                  accent="text-warm"
+                />
+              </div>
             </div>
 
             {/* Churn chart */}
@@ -355,7 +363,12 @@ export default function SessionsPage() {
                       <th className="py-3 pr-4 font-normal">Changes</th>
                       <th className="py-3 pr-4 font-normal">Model</th>
                       <th className="py-3 pr-4 font-normal text-right">Tokens</th>
-                      <th className="py-3 pr-4 font-normal text-right">Cost</th>
+                      <th
+                        className="py-3 pr-4 font-normal text-right"
+                        title="API-equivalent value of the usage — on Pro/Max you pay a flat subscription, not this amount"
+                      >
+                        Value
+                      </th>
                     </tr>
                   </thead>
                   <tbody>

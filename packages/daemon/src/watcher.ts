@@ -154,6 +154,11 @@ export function sumTranscriptUsage(transcriptPath: string): {
         model = m;
       }
     }
+    // Make multi-model sessions visible — "claude-opus-4-8 +1" tells the
+    // user the picker's alias resolved to more than one backend model.
+    if (model && outputByModel.size > 1) {
+      model = `${model} +${outputByModel.size - 1}`;
+    }
 
     return { inputTokens, outputTokens, costUsd, model };
   } catch {

@@ -244,8 +244,11 @@ export default function SessionDetailPage() {
                 <span className="text-muted">
                   {(data.session.inputTokens + data.session.outputTokens).toLocaleString()} tokens
                 </span>
-                <span className={data.session.costUsd > 1 ? "text-warm font-medium" : "text-accent"}>
-                  ${data.session.costUsd.toFixed(4)}
+                <span
+                  className={data.session.costUsd > 1 ? "text-warm font-medium" : "text-accent"}
+                  title="API-equivalent value — on Pro/Max you pay a flat subscription, not this amount"
+                >
+                  ${data.session.costUsd.toFixed(4)} <span className="text-faint">API equiv.</span>
                 </span>
               </div>
             </div>
