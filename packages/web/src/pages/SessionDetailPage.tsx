@@ -14,6 +14,10 @@ const KIND_COLOR: Record<string, string> = {
   PreCompact: "text-orange-400",
 };
 
+// PreToolUse duplicates PostToolUse for every call; Stop/Notification carry
+// no information a human scans for. Hidden unless "all events" is on.
+const NOISE = new Set(["PreToolUse", "Stop", "SubagentStop", "Notification", "SessionStart"]);
+
 function fmtDate(s: string) {
   return new Date(s).toLocaleString();
 }
@@ -22,11 +26,15 @@ function baseName(p: string) {
   return p.split(/[/\\]/).pop() ?? p;
 }
 
-type Diff = { path: string; old: string; new: string } | null;
+function countLines(s: string): number {
+  return s ? s.split("\n").length : 0;
+}
+
+type Diff = { path: string; old: string; new: string };
 
 /** Extract the actual change an Edit/Write tool made, if the payload has one. */
-function extractDiff(e: HookEvent): Diff {
-  if (e.kind !== "PostToolUse" && e.kind !== "PreToolUse") return null;
+function extractDiff(e: HookEvent): Diff | null {
+  if (e.kind !== "PostToolUse") return null;
   const input = e.payload["tool_input"] as Record<string, unknown> | undefined;
   if (!input) return null;
   const path = (input["file_path"] ?? input["path"]) as string | undefined;
@@ -38,18 +46,14 @@ function extractDiff(e: HookEvent): Diff {
     return { path, old: oldStr ?? "", new: newStr ?? "" };
   }
   const content = input["content"] as string | undefined;
-  if (content !== undefined) {
-    return { path, old: "", new: content };
-  }
+  if (content !== undefined) return { path, old: "", new: content };
   return null;
 }
 
 function payloadPreview(e: HookEvent): string {
   const p = e.payload;
   if (typeof p["prompt"] === "string") return p["prompt"] as string;
-  if (typeof p["message"] === "string" && e.kind === "GitCommit") {
-    return `${p["message"]}`;
-  }
+  if (e.kind === "GitCommit" && typeof p["message"] === "string") return p["message"] as string;
   if (typeof p["tool_name"] === "string") {
     const input = p["tool_input"] as Record<string, unknown> | undefined;
     const target =
@@ -57,9 +61,45 @@ function payloadPreview(e: HookEvent): string {
       (input?.["path"] as string) ??
       (input?.["command"] as string) ??
       "";
-    return target ? `${p["tool_name"]} — ${baseName(String(target).slice(0, 120))}` : (p["tool_name"] as string);
+    return target
+      ? `${p["tool_name"]} — ${baseName(String(target).slice(0, 120))}`
+      : (p["tool_name"] as string);
   }
   return JSON.stringify(p);
+}
+
+// A turn = one user prompt and everything the agent did in response.
+type Turn = { n: number; prompt: string | null; events: HookEvent[] };
+
+function buildTurns(events: HookEvent[]): Turn[] {
+  const turns: Turn[] = [];
+  let cur: Turn = { n: 0, prompt: null, events: [] };
+  let promptCount = 0;
+  for (const e of events) {
+    if (e.kind === "UserPromptSubmit") {
+      if (cur.prompt !== null || cur.events.length) turns.push(cur);
+      promptCount += 1;
+      cur = { n: promptCount, prompt: String(e.payload["prompt"] ?? ""), events: [] };
+    } else {
+      cur.events.push(e);
+    }
+  }
+  if (cur.prompt !== null || cur.events.length) turns.push(cur);
+  return turns;
+}
+
+function turnStats(t: Turn): { files: number; added: number; removed: number } {
+  const paths = new Set<string>();
+  let added = 0;
+  let removed = 0;
+  for (const e of t.events) {
+    const d = extractDiff(e);
+    if (!d) continue;
+    paths.add(d.path);
+    added += countLines(d.new);
+    removed += countLines(d.old);
+  }
+  return { files: paths.size, added, removed };
 }
 
 export default function SessionDetailPage() {
@@ -68,6 +108,8 @@ export default function SessionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [fileFilter, setFileFilter] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -77,6 +119,8 @@ export default function SessionDetailPage() {
       .catch((e: unknown) => setError(String(e)))
       .finally(() => setLoading(false));
   }, [id]);
+
+  const turns = useMemo(() => (data ? buildTurns(data.events) : []), [data]);
 
   // One row per file, churn-sorted — not one row per individual edit
   const fileAgg = useMemo(() => {
@@ -93,6 +137,14 @@ export default function SessionDetailPage() {
       (a, b) => b[1].added + b[1].removed - (a[1].added + a[1].removed),
     );
   }, [data]);
+
+  function visibleEvents(t: Turn): HookEvent[] {
+    let evs = showAll ? t.events : t.events.filter((e) => !NOISE.has(e.kind));
+    if (fileFilter) evs = evs.filter((e) => extractDiff(e)?.path === fileFilter);
+    return evs;
+  }
+
+  const shownTurns = fileFilter ? turns.filter((t) => visibleEvents(t).length > 0) : turns;
 
   return (
     <div className="min-h-screen">
@@ -139,9 +191,7 @@ export default function SessionDetailPage() {
                   {(data.session.inputTokens + data.session.outputTokens).toLocaleString()} tokens
                 </span>
                 <span
-                  className={
-                    data.session.costUsd > 1 ? "text-amber-400" : "text-emerald-400"
-                  }
+                  className={data.session.costUsd > 1 ? "text-amber-400" : "text-emerald-400"}
                 >
                   ${data.session.costUsd.toFixed(4)}
                 </span>
@@ -149,64 +199,125 @@ export default function SessionDetailPage() {
             </div>
 
             <div className="grid grid-cols-[1fr_340px] gap-8">
-              {/* Events timeline */}
+              {/* Timeline grouped by prompt */}
               <section>
-                <h2 className="text-xs text-zinc-500 uppercase tracking-wider mb-3">
-                  Events ({data.events.length})
-                  <span className="normal-case tracking-normal text-zinc-600 ml-2">
-                    — click an edit to see the diff
-                  </span>
-                </h2>
-                <div className="space-y-0">
-                  {data.events.map((e) => {
-                    const diff = extractDiff(e);
-                    const expanded = expandedEvent === e.id;
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-xs text-zinc-500 uppercase tracking-wider">
+                    Timeline — {turns.filter((t) => t.prompt !== null).length} prompts
+                  </h2>
+                  <div className="flex items-center gap-3">
+                    {fileFilter && (
+                      <button
+                        onClick={() => setFileFilter(null)}
+                        className="text-xs bg-zinc-800 text-zinc-300 rounded px-2 py-0.5 hover:bg-zinc-700 transition-colors"
+                      >
+                        {baseName(fileFilter)} ✕
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setShowAll(!showAll)}
+                      className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
+                    >
+                      {showAll ? "hide noise" : "all events"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  {shownTurns.map((t) => {
+                    const stats = turnStats(t);
+                    const evs = visibleEvents(t);
                     return (
-                      <div key={e.id} className="border-b border-zinc-800/40">
-                        <div
-                          className={`flex gap-3 py-2 items-start ${diff ? "cursor-pointer hover:bg-zinc-900/50" : ""}`}
-                          onClick={() => diff && setExpandedEvent(expanded ? null : e.id)}
-                        >
-                          <span
-                            className={`text-xs font-mono shrink-0 w-36 pt-0.5 ${KIND_COLOR[e.kind] ?? "text-zinc-500"}`}
-                          >
-                            {e.kind}
-                          </span>
-                          <span className="text-zinc-500 text-xs leading-relaxed flex-1">
-                            {payloadPreview(e).slice(0, 160)}
-                          </span>
-                          {diff && (
-                            <span className="text-zinc-600 text-xs shrink-0">
-                              {expanded ? "▲" : "diff ▼"}
-                            </span>
+                      <div key={t.n} className="border border-zinc-800 rounded-lg overflow-hidden">
+                        {/* Prompt header — the "why" of every change below it */}
+                        <div className="px-4 py-3 bg-zinc-900/60 border-b border-zinc-800">
+                          {t.prompt === null ? (
+                            <span className="text-zinc-500 text-xs">session start</span>
+                          ) : (
+                            <div className="flex items-start gap-2">
+                              <span className="text-violet-400 text-xs font-mono shrink-0 pt-0.5">
+                                ❯ {t.n}
+                              </span>
+                              <p className="text-zinc-200 text-sm leading-relaxed">
+                                {t.prompt.length > 280 ? `${t.prompt.slice(0, 280)}…` : t.prompt}
+                              </p>
+                            </div>
+                          )}
+                          {stats.files > 0 && (
+                            <p className="text-xs mt-1.5 ml-6 font-mono">
+                              <span className="text-zinc-500 font-sans">
+                                changed {stats.files} file{stats.files === 1 ? "" : "s"}{" "}
+                              </span>
+                              <span className="text-emerald-500">+{stats.added}</span>
+                              <span className="text-zinc-700">/</span>
+                              <span className="text-red-500">-{stats.removed}</span>
+                            </p>
                           )}
                         </div>
 
-                        {expanded && diff && (
-                          <div className="mb-3 ml-[9.75rem] rounded border border-zinc-800 overflow-hidden text-xs font-mono">
-                            <div className="px-3 py-1.5 bg-zinc-900 text-zinc-400 border-b border-zinc-800">
-                              {diff.path}
-                            </div>
-                            {diff.old && (
-                              <pre className="px-3 py-2 bg-red-950/30 text-red-300/90 whitespace-pre-wrap break-all max-h-64 overflow-auto border-b border-zinc-800">
-                                {diff.old}
-                              </pre>
-                            )}
-                            <pre className="px-3 py-2 bg-emerald-950/30 text-emerald-300/90 whitespace-pre-wrap break-all max-h-64 overflow-auto">
-                              {diff.new}
-                            </pre>
-                          </div>
-                        )}
+                        {/* Events of this turn */}
+                        <div className="px-4">
+                          {evs.length === 0 && (
+                            <p className="text-zinc-700 text-xs py-2">no file changes this turn</p>
+                          )}
+                          {evs.map((e) => {
+                            const diff = extractDiff(e);
+                            const expanded = fileFilter !== null || expandedEvent === e.id;
+                            return (
+                              <div key={e.id} className="border-b border-zinc-800/40 last:border-0">
+                                <div
+                                  className={`flex gap-3 py-2 items-start ${diff ? "cursor-pointer hover:bg-zinc-900/50" : ""}`}
+                                  onClick={() =>
+                                    diff && !fileFilter && setExpandedEvent(expanded ? null : e.id)
+                                  }
+                                >
+                                  <span
+                                    className={`text-xs font-mono shrink-0 w-28 pt-0.5 ${KIND_COLOR[e.kind] ?? "text-zinc-500"}`}
+                                  >
+                                    {e.kind === "PostToolUse" ? "ToolUse" : e.kind}
+                                  </span>
+                                  <span className="text-zinc-500 text-xs leading-relaxed flex-1">
+                                    {payloadPreview(e).slice(0, 160)}
+                                  </span>
+                                  {diff && !fileFilter && (
+                                    <span className="text-zinc-600 text-xs shrink-0">
+                                      {expanded ? "▲" : "diff ▼"}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {expanded && diff && (
+                                  <div className="mb-3 rounded border border-zinc-800 overflow-hidden text-xs font-mono">
+                                    <div className="px-3 py-1.5 bg-zinc-900 text-zinc-400 border-b border-zinc-800">
+                                      {diff.path}
+                                    </div>
+                                    {diff.old && (
+                                      <pre className="px-3 py-2 bg-red-950/30 text-red-300/90 whitespace-pre-wrap break-all max-h-64 overflow-auto border-b border-zinc-800">
+                                        {diff.old}
+                                      </pre>
+                                    )}
+                                    <pre className="px-3 py-2 bg-emerald-950/30 text-emerald-300/90 whitespace-pre-wrap break-all max-h-64 overflow-auto">
+                                      {diff.new}
+                                    </pre>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               </section>
 
-              {/* Files changed */}
+              {/* Files changed — click one to see all its edits */}
               <section>
                 <h2 className="text-xs text-zinc-500 uppercase tracking-wider mb-3">
                   Files changed ({fileAgg.length})
+                  <span className="normal-case tracking-normal text-zinc-600 ml-2">
+                    — click to trace edits
+                  </span>
                 </h2>
                 {fileAgg.length === 0 ? (
                   <p className="text-zinc-700 text-xs">No files recorded</p>
@@ -215,7 +326,10 @@ export default function SessionDetailPage() {
                     {fileAgg.map(([path, agg]) => (
                       <div
                         key={path}
-                        className="py-2 border-b border-zinc-800/40"
+                        onClick={() => setFileFilter(fileFilter === path ? null : path)}
+                        className={`py-2 border-b border-zinc-800/40 cursor-pointer px-2 -mx-2 rounded transition-colors ${
+                          fileFilter === path ? "bg-zinc-800/60" : "hover:bg-zinc-900/60"
+                        }`}
                       >
                         <div className="flex justify-between items-center">
                           <span className="text-zinc-300 text-xs truncate mr-2" title={path}>
