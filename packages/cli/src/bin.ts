@@ -39,7 +39,7 @@ cli
   });
 
 cli.help();
-cli.version("0.0.1");
+cli.version("0.1.0");
 
 try {
   cli.parse();

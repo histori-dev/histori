@@ -1,8 +1,9 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, openSync, writeFileSync, existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 import kleur from "kleur";
 
 const requireFn = createRequire(import.meta.url);
@@ -22,15 +23,17 @@ export function up() {
     }
   }
 
-  // For v0.1 we resolve the daemon entrypoint via workspace package resolution.
-  // Once published, the daemon is bundled and we'll point at the bundled file.
-  const daemonEntry = requireFn.resolve("@histori/daemon");
+  // Published package: the daemon is bundled next to this file (dist/daemon.js).
+  // Dev (running from the repo): fall back to the workspace TS source via tsx.
+  const bundledDaemon = join(dirname(fileURLToPath(import.meta.url)), "daemon.js");
   // Spawn node directly (no npx, no shell) — the cmd.exe→npx→node chain on
   // Windows drops the stdio redirect, leaving daemon.log permanently empty.
-  const tsxCli = requireFn.resolve("tsx/cli");
+  const nodeArgs = existsSync(bundledDaemon)
+    ? [bundledDaemon]
+    : [requireFn.resolve("tsx/cli"), requireFn.resolve("@histori/daemon")];
 
   const out = openSync(LOG_FILE, "a");
-  const child = spawn(process.execPath, [tsxCli, daemonEntry], {
+  const child = spawn(process.execPath, nodeArgs, {
     detached: true,
     stdio: ["ignore", out, out],
     windowsHide: true,

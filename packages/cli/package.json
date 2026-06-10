@@ -1,7 +1,7 @@
 {
   "name": "histori",
-  "version": "0.0.1",
-  "description": "Local-first observability for your AI coding sessions.",
+  "version": "0.1.0",
+  "description": "Memory for AI coding agents. Local-first session recording, knowledge distillation, and MCP recall for Claude Code.",
   "license": "MIT",
   "author": "Oliyad Bekele",
   "type": "module",
@@ -9,25 +9,49 @@
     "histori": "./dist/bin.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "migrations",
+    "web"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/oli-yad13/histori.git"
+  },
+  "homepage": "https://github.com/oli-yad13/histori#readme",
+  "bugs": "https://github.com/oli-yad13/histori/issues",
+  "keywords": [
+    "claude-code",
+    "mcp",
+    "ai-agents",
+    "memory",
+    "observability",
+    "local-first",
+    "sqlite"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "tsx src/bin.ts",
-    "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "build": "tsup && node scripts/assets.mjs",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm -w build"
   },
   "dependencies": {
+    "better-sqlite3": "^11.5.0"
+  },
+  "devDependencies": {
     "@histori/daemon": "workspace:*",
     "@histori/db": "workspace:*",
     "@histori/hooks": "workspace:*",
     "@histori/mcp": "workspace:*",
     "@histori/shared": "workspace:*",
+    "@histori/web": "workspace:*",
     "cac": "^6.7.14",
     "drizzle-orm": "^0.36.0",
     "kleur": "^4.1.5",
-    "nanoid": "^5.0.0"
-  },
-  "devDependencies": {
+    "nanoid": "^5.0.0",
+    "tsup": "^8.3.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }

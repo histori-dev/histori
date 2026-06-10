@@ -1,10 +1,7 @@
-import { createRequire } from "node:module";
-
-const requireFn = createRequire(import.meta.url);
-
 export async function mcp() {
-  // Resolve the MCP server entrypoint from the workspace package and run it
-  // in-process. Claude Code spawns this command and communicates via stdio.
-  const entry = requireFn.resolve("@histori/mcp");
-  await import(entry);
+  // Static specifier so the bundler includes the MCP server in the published
+  // package (as a lazy chunk — it only loads when Claude Code spawns
+  // `histori mcp` and talks to it over stdio). In dev, tsx resolves the
+  // workspace TS source the same way.
+  await import("@histori/mcp");
 }

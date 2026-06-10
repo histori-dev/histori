@@ -18,9 +18,13 @@ app.use("*", cors());
 // hard-refreshed in the browser without colliding with JSON endpoints.
 app.route("/api", routes(db));
 
-// Serve the built web dashboard if it exists
+// Serve the built web dashboard if it exists.
+// Dev: packages/daemon/src → ../../web/dist (workspace build output).
+// Published: bundled into <pkg>/dist/daemon.js → ../web (staged by assets.mjs).
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const webDist = join(__dirname, "../../web/dist");
+const webDistCandidates = [join(__dirname, "../../web/dist"), join(__dirname, "../web")];
+const webDist =
+  webDistCandidates.find((d) => existsSync(join(d, "index.html"))) ?? webDistCandidates[0]!;
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",

@@ -3,9 +3,11 @@ import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { createRequire } from "node:module";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import kleur from "kleur";
 
 const requireFn = createRequire(import.meta.url);
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 const HOOK_KINDS = [
   "SessionStart",
@@ -39,8 +41,12 @@ export function install() {
   mkdirSync(dirname(hookPath), { recursive: true });
   mkdirSync(claudeDir, { recursive: true });
 
-  // Drop the capture script into ~/.histori/hooks/capture.cjs
-  const srcCapture = requireFn.resolve("@histori/hooks/capture.cjs");
+  // Drop the capture script into ~/.histori/hooks/capture.cjs.
+  // Published: it ships next to this file in dist/. Dev: workspace package.
+  const bundledCapture = join(HERE, "capture.cjs");
+  const srcCapture = existsSync(bundledCapture)
+    ? bundledCapture
+    : requireFn.resolve("@histori/hooks/capture.cjs");
   copyFileSync(srcCapture, hookPath);
 
   // Merge hooks into Claude Code's settings.json
@@ -80,15 +86,21 @@ export function install() {
   // Register the MCP server at user scope via the claude CLI — the canonical
   // way; it writes to ~/.claude.json which is where Claude Code actually
   // reads MCP servers from.
-  const mcpEntry = requireFn.resolve("@histori/mcp");
+  // Published: register `node <dist/bin.js> mcp` (the server is bundled in).
+  // Dev: run the workspace TS source through npx tsx.
+  const q = (p: string) => (process.platform === "win32" ? `"${p}"` : p);
+  const bundledBin = join(HERE, "bin.js");
+  const mcpCommand = existsSync(bundledBin)
+    ? ["node", q(bundledBin), "mcp"]
+    : ["npx", "tsx", q(requireFn.resolve("@histori/mcp"))];
   const result = spawnSync(
     "claude",
-    ["mcp", "add", "--scope", "user", "histori", "--", "npx", "tsx", mcpEntry],
+    ["mcp", "add", "--scope", "user", "histori", "--", ...mcpCommand],
     { encoding: "utf8", shell: process.platform === "win32" },
   );
   if (result.status === 0) {
     console.log(kleur.green("✓") + " histori MCP server registered (user scope)");
-    console.log(kleur.gray(`  mcp:      ${mcpEntry}`));
+    console.log(kleur.gray(`  mcp:      ${mcpCommand.join(" ")}`));
   } else {
     const detail = (result.stderr || result.stdout || "").trim();
     if (detail.includes("already exists")) {
@@ -98,7 +110,7 @@ export function install() {
       if (detail) console.log(kleur.gray(`  ${detail.split("\n")[0]}`));
       console.log(
         kleur.gray("  run manually: ") +
-          kleur.cyan(`claude mcp add --scope user histori -- npx tsx "${mcpEntry}"`),
+          kleur.cyan(`claude mcp add --scope user histori -- ${mcpCommand.join(" ")}`),
       );
     }
   }
