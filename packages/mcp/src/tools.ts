@@ -2,7 +2,26 @@ import { z } from "zod";
 import { nanoid } from "nanoid";
 import { desc, eq, like, gte, inArray, sql } from "drizzle-orm";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { looseFtsQuery } from "@histori/shared";
 import { sessions, events, rules, fileTouches, memories, type Db } from "@histori/db";
+
+/** MATCH with strict query first; if it errors or misses, retry loose (OR of prefixes). */
+function ftsSearch<T>(db: Db, sqlText: string, query: string, ...rest: unknown[]): T[] {
+  const stmt = db.$client.prepare(sqlText);
+  try {
+    const rows = stmt.all(query, ...rest) as T[];
+    if (rows.length) return rows;
+  } catch {
+    // strict query had FTS5 syntax errors — fall through to loose
+  }
+  const loose = looseFtsQuery(query);
+  if (!loose) return [];
+  try {
+    return stmt.all(loose, ...rest) as T[];
+  } catch {
+    return [];
+  }
+}
 
 export function registerTools(server: McpServer, db: Db) {
   server.tool(
@@ -13,19 +32,17 @@ export function registerTools(server: McpServer, db: Db) {
       limit: z.number().int().min(1).max(20).default(5).describe("Max memories to return"),
     },
     async ({ query, limit }) => {
-      let ids: string[] = [];
-      try {
-        type FtsRow = { memory_id: string };
-        const ftsRows = db.$client
-          .prepare(
-            `SELECT memory_id FROM memories_fts
-             WHERE memories_fts MATCH ?
-             ORDER BY rank LIMIT ?`,
-          )
-          .all(query, limit) as FtsRow[];
-        ids = ftsRows.map((r) => r.memory_id);
-      } catch {
-        // FTS5 syntax error — fall back to LIKE
+      let ids = ftsSearch<{ memory_id: string }>(
+        db,
+        `SELECT memory_id FROM memories_fts
+         WHERE memories_fts MATCH ?
+         ORDER BY rank LIMIT ?`,
+        query,
+        limit,
+      ).map((r) => r.memory_id);
+
+      if (!ids.length) {
+        // Last resort: substring LIKE over title + content
         const pattern = `%${query.toLowerCase()}%`;
         const rows = await db
           .select({ id: memories.id })
@@ -104,23 +121,20 @@ export function registerTools(server: McpServer, db: Db) {
       limit: z.number().int().min(1).max(20).default(5).describe("Max sessions to return"),
     },
     async ({ query, limit }) => {
-      // Use FTS5 for ranked full-text search; fall back to LIKE on error
-      let ids: string[] = [];
-      try {
-        type FtsRow = { session_id: string };
-        const ftsRows = db.$client
-          .prepare(
-            `SELECT session_id
-             FROM sessions_fts
-             WHERE sessions_fts MATCH ?
-             GROUP BY session_id
-             ORDER BY min(rank)
-             LIMIT ?`,
-          )
-          .all(query, limit * 3) as FtsRow[];
-        ids = ftsRows.map((r) => r.session_id);
-      } catch {
-        // FTS5 query syntax error — fall back to LIKE
+      // FTS5 ranked search (strict, then loose); LIKE as last resort
+      let ids = ftsSearch<{ session_id: string }>(
+        db,
+        `SELECT session_id
+         FROM sessions_fts
+         WHERE sessions_fts MATCH ?
+         GROUP BY session_id
+         ORDER BY min(rank)
+         LIMIT ?`,
+        query,
+        limit * 3,
+      ).map((r) => r.session_id);
+
+      if (!ids.length) {
         const pattern = `%${query.toLowerCase()}%`;
         const rows = await db
           .select({ sessionId: events.sessionId })

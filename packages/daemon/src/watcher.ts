@@ -56,24 +56,61 @@ function countLines(s: string): number {
   return s ? s.split("\n").length : 0;
 }
 
-function estimateCost(
-  model: string | null | undefined,
-  inputTokens: number,
-  outputTokens: number,
-): number {
-  const m = (model ?? "").toLowerCase();
-  let inputRate: number, outputRate: number;
-  if (m.includes("opus")) {
-    inputRate = 15;
-    outputRate = 75;
-  } else if (m.includes("haiku")) {
-    inputRate = 0.8;
-    outputRate = 4;
-  } else {
-    inputRate = 3; // sonnet default
-    outputRate = 15;
+function rates(model: string): { input: number; output: number } {
+  const m = model.toLowerCase();
+  if (m.includes("opus")) return { input: 15, output: 75 };
+  if (m.includes("haiku")) return { input: 0.8, output: 4 };
+  return { input: 3, output: 15 }; // sonnet default
+}
+
+// The Stop hook payload carries no usage data — but it has transcript_path,
+// and every assistant message in the transcript has a real usage object.
+// Summing the transcript is idempotent: each Stop recomputes full totals.
+function sumTranscriptUsage(transcriptPath: string): {
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+  model: string | null;
+} | null {
+  try {
+    const lines = readFileSync(transcriptPath, "utf8").split("\n");
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let costUsd = 0;
+    let model: string | null = null;
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let entry: any;
+      try {
+        entry = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      const usage = entry?.message?.usage;
+      if (entry?.type !== "assistant" || !usage) continue;
+
+      const input = usage.input_tokens ?? 0;
+      const cacheWrite = usage.cache_creation_input_tokens ?? 0;
+      const cacheRead = usage.cache_read_input_tokens ?? 0;
+      const output = usage.output_tokens ?? 0;
+
+      inputTokens += input + cacheWrite + cacheRead;
+      outputTokens += output;
+
+      const entryModel: string = entry.message.model ?? model ?? "";
+      if (entry.message.model) model = entry.message.model;
+      const r = rates(entryModel);
+      // cache writes cost 1.25x input rate, cache reads 0.1x
+      costUsd +=
+        (input * r.input + cacheWrite * r.input * 1.25 + cacheRead * r.input * 0.1 + output * r.output) /
+        1_000_000;
+    }
+
+    return { inputTokens, outputTokens, costUsd, model };
+  } catch {
+    return null;
   }
-  return (inputTokens * inputRate + outputTokens * outputRate) / 1_000_000;
 }
 
 function gitStr(cwd: string, cmd: string): string | null {
@@ -138,25 +175,26 @@ async function ingest(db: Db, ev: any) {
   }
 
   if (kind === "Stop") {
-    const usage = payload.usage ?? {};
-    const inputTokens =
-      (usage.input_tokens ?? 0) +
-      (usage.cache_read_input_tokens ?? 0) +
-      (usage.cache_creation_input_tokens ?? 0);
-    const outputTokens = usage.output_tokens ?? 0;
+    const transcriptPath: string | undefined = payload.transcript_path;
+    const totals =
+      transcriptPath && existsSync(transcriptPath)
+        ? sumTranscriptUsage(transcriptPath)
+        : null;
 
-    const [row] = await db
-      .select({ model: sessions.model })
-      .from(sessions)
-      .where(eq(sessions.id, sessionId))
-      .limit(1);
-
-    const costUsd = estimateCost(row?.model, inputTokens, outputTokens);
-
-    await db
-      .update(sessions)
-      .set({ inputTokens, outputTokens, costUsd, endedAt: ts })
-      .where(eq(sessions.id, sessionId));
+    if (totals) {
+      await db
+        .update(sessions)
+        .set({
+          inputTokens: totals.inputTokens,
+          outputTokens: totals.outputTokens,
+          costUsd: totals.costUsd,
+          model: totals.model ?? undefined,
+          endedAt: ts,
+        })
+        .where(eq(sessions.id, sessionId));
+    } else {
+      await db.update(sessions).set({ endedAt: ts }).where(eq(sessions.id, sessionId));
+    }
   }
 
   if (kind === "PostToolUse") {

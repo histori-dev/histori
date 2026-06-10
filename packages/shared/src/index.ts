@@ -41,3 +41,15 @@ export const PORT_FILE =
   process.platform === "win32"
     ? `${HISTORI_HOME}\\daemon.port`
     : `${HISTORI_HOME}/daemon.port`;
+
+// FTS5 MATCH treats multi-word queries as implicit AND with no stemming,
+// so "typescript rust decision" misses a doc containing "Decisions".
+// This builds a forgiving fallback: OR of quoted prefix terms — bm25 still
+// ranks docs matching more terms higher.
+export function looseFtsQuery(raw: string): string {
+  const terms = raw
+    .split(/\s+/)
+    .map((t) => t.replace(/[^\p{L}\p{N}_]/gu, ""))
+    .filter(Boolean);
+  return terms.map((t) => `"${t}"*`).join(" OR ");
+}
