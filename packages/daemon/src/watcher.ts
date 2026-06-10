@@ -83,15 +83,17 @@ function countLines(s: string): number {
 
 function rates(model: string): { input: number; output: number } {
   const m = model.toLowerCase();
-  if (m.includes("opus")) return { input: 15, output: 75 };
-  if (m.includes("haiku")) return { input: 0.8, output: 4 };
+  // "fable" is an Opus-family alias — sessions show it interleaved with
+  // claude-opus-4-8 message-by-message, so bill it at opus rates.
+  if (m.includes("opus") || m.includes("fable")) return { input: 5, output: 25 };
+  if (m.includes("haiku")) return { input: 1, output: 5 };
   return { input: 3, output: 15 }; // sonnet default
 }
 
 // The Stop hook payload carries no usage data — but it has transcript_path,
 // and every assistant message in the transcript has a real usage object.
 // Summing the transcript is idempotent: each Stop recomputes full totals.
-function sumTranscriptUsage(transcriptPath: string): {
+export function sumTranscriptUsage(transcriptPath: string): {
   inputTokens: number;
   outputTokens: number;
   costUsd: number;
@@ -102,7 +104,9 @@ function sumTranscriptUsage(transcriptPath: string): {
     let inputTokens = 0;
     let outputTokens = 0;
     let costUsd = 0;
-    let model: string | null = null;
+    // A session can interleave models (aliases, /model switches). Report
+    // the one that produced the most output tokens.
+    const outputByModel = new Map<string, number>();
 
     for (const line of lines) {
       if (!line.trim()) continue;
@@ -116,20 +120,39 @@ function sumTranscriptUsage(transcriptPath: string): {
       if (entry?.type !== "assistant" || !usage) continue;
 
       const input = usage.input_tokens ?? 0;
-      const cacheWrite = usage.cache_creation_input_tokens ?? 0;
       const cacheRead = usage.cache_read_input_tokens ?? 0;
       const output = usage.output_tokens ?? 0;
+      // Cache writes: 1h-TTL costs 2x the input rate, 5m-TTL costs 1.25x.
+      // Fall back to treating the lump sum as 5m if no breakdown exists.
+      const cw1h = usage.cache_creation?.ephemeral_1h_input_tokens ?? 0;
+      const cw5m =
+        usage.cache_creation?.ephemeral_5m_input_tokens ??
+        Math.max(0, (usage.cache_creation_input_tokens ?? 0) - cw1h);
 
-      inputTokens += input + cacheWrite + cacheRead;
+      inputTokens += input + cw1h + cw5m + cacheRead;
       outputTokens += output;
 
-      const entryModel: string = entry.message.model ?? model ?? "";
-      if (entry.message.model) model = entry.message.model;
+      const entryModel: string = entry.message.model ?? "";
+      if (entryModel) {
+        outputByModel.set(entryModel, (outputByModel.get(entryModel) ?? 0) + output);
+      }
       const r = rates(entryModel);
-      // cache writes cost 1.25x input rate, cache reads 0.1x
       costUsd +=
-        (input * r.input + cacheWrite * r.input * 1.25 + cacheRead * r.input * 0.1 + output * r.output) /
+        (input * r.input +
+          cw1h * r.input * 2 +
+          cw5m * r.input * 1.25 +
+          cacheRead * r.input * 0.1 +
+          output * r.output) /
         1_000_000;
+    }
+
+    let model: string | null = null;
+    let best = -1;
+    for (const [m, out] of outputByModel) {
+      if (out > best) {
+        best = out;
+        model = m;
+      }
     }
 
     return { inputTokens, outputTokens, costUsd, model };
