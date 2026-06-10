@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { basename } from "node:path";
 import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
+import { HISTORI_HOME } from "@histori/shared";
 import { sessions, events, fileTouches, memories, type Db } from "@histori/db";
 
 // The distiller turns raw session logs into knowledge. When a session has
@@ -118,8 +119,12 @@ function distillWithClaude(digest: string): Distilled | null {
     "Omit empty strings from arrays. Be concrete: name files, errors, and versions.";
 
   try {
-    const result = spawnSync("claude", ["-p", prompt, "--model", "haiku"], {
-      input: digest,
+    // Instruction goes through stdin too — passing it as an argv string
+    // gets mangled by cmd.exe quoting on Windows (shell: true). cwd is
+    // ~/.histori so claude doesn't load any project context.
+    const result = spawnSync("claude", ["-p", "--model", "haiku"], {
+      input: `${prompt}\n\n--- SESSION LOG ---\n${digest}`,
+      cwd: HISTORI_HOME,
       encoding: "utf8",
       timeout: CLAUDE_TIMEOUT_MS,
       maxBuffer: 4 * 1024 * 1024,
