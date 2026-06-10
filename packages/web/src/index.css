@@ -1,33 +1,46 @@
 @import "tailwindcss";
 
 /* Sage editorial theme — palette lifted from getloadcell.com / odit.et:
-   paper background, forest-green ink, sage accents, soft brick red. */
+   putty canvas, white cards, forest-green ink, dusty-clay chart bars,
+   deep brick red, tiny uppercase letterspaced labels. */
 @theme {
-  --color-bg: #fafbfa;
-  --color-surface: #f1f4ef;
+  --color-bg: #f5f6f1;
+  --color-surface: #edefe6;
   --color-inset: #ffffff;
-  --color-ink: #1f2a1d;
-  --color-muted: #5f6c5f;
-  --color-faint: #8c948b;
-  --color-accent: #485941;
-  --color-accent-strong: #364432;
-  --color-sage: #9fb8ad;
-  --color-sage-tint: rgba(159, 184, 173, 0.2);
-  --color-line: rgba(72, 89, 65, 0.12);
-  --color-line-strong: rgba(72, 89, 65, 0.24);
-  --color-pos: #485941;
-  --color-pos-soft: #7ca08e;
-  --color-neg: #c44d4d;
-  --color-neg-strong: #b03939;
-  --color-neg-tint: rgba(196, 77, 77, 0.08);
+  --color-ink: #20261d;
+  --color-muted: #626c5e;
+  --color-faint: #8f978c;
+  --color-accent: #46543f;
+  --color-accent-strong: #333f2e;
+  --color-sage: #a3bbaf;
+  --color-sage-tint: rgba(163, 187, 175, 0.18);
+  --color-line: rgba(46, 58, 42, 0.1);
+  --color-line-strong: rgba(46, 58, 42, 0.2);
+  --color-pos: #46543f;
+  --color-pos-soft: #84a18f;
+  --color-neg: #9d3b30;
+  --color-neg-strong: #7c281f;
+  --color-neg-tint: rgba(157, 59, 48, 0.08);
   --color-warm: #8a5e36;
+  --color-bar: #c8a596;
+  --color-bar-strong: #b98e7c;
 }
 
 body {
   @apply bg-bg text-ink antialiased;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+  font-variant-numeric: tabular-nums;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Hover highlight band behind a chart bucket */
+.churn-chart .slot-band {
+  fill: transparent;
+  transition: fill 120ms ease;
+}
+.churn-chart g:hover .slot-band {
+  fill: rgba(46, 58, 42, 0.05);
 }

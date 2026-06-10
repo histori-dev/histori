@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 import { api, type SessionDetail, type HookEvent } from "../api";
+import { TopBar } from "../components/Chrome";
 
 const KIND_COLOR: Record<string, string> = {
   SessionStart: "text-sage",
@@ -202,14 +203,19 @@ export default function SessionDetailPage() {
 
   return (
     <div className="min-h-screen">
-      {/* Nav */}
-      <header className="border-b border-line bg-inset px-6 py-4">
-        <Link to="/" className="text-sm text-muted hover:text-ink transition-colors">
-          ← Sessions
-        </Link>
-      </header>
+      <TopBar
+        active="sessions"
+        right={data?.session.model && <span>{data.session.model}</span>}
+      />
 
       <main className="px-6 py-6 max-w-6xl mx-auto">
+        <Link
+          to="/"
+          className="text-xs text-muted hover:text-ink transition-colors inline-block mb-4"
+        >
+          ← All sessions
+        </Link>
+
         {loading && <p className="text-muted text-sm">Loading...</p>}
         {error && <p className="text-neg-strong text-sm">{error}</p>}
 
@@ -286,7 +292,7 @@ export default function SessionDetailPage() {
                     return (
                       <div
                         key={t.n}
-                        className="border border-line rounded-xl bg-inset shadow-sm overflow-hidden"
+                        className="border border-line rounded-lg bg-inset shadow-sm overflow-hidden"
                       >
                         {/* Prompt header — the "why" of every change below it */}
                         <div className="px-4 py-3 bg-surface border-b border-line">
@@ -383,7 +389,7 @@ export default function SessionDetailPage() {
                 {fileAgg.length === 0 ? (
                   <p className="text-faint text-xs">No files recorded</p>
                 ) : (
-                  <div className="border border-line rounded-xl bg-inset shadow-sm px-3 py-1">
+                  <div className="border border-line rounded-lg bg-inset shadow-sm px-3 py-1">
                     {fileAgg.map(([path, agg]) => (
                       <div
                         key={path}

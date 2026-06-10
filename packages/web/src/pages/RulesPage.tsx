@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { useEffect, useMemo, useState } from "react";
 import { api, type Rule } from "../api";
+import { Label, TopBar } from "../components/Chrome";
 
 function fmtDate(n: number) {
   return new Date(n).toLocaleDateString(undefined, {
@@ -12,9 +12,10 @@ function fmtDate(n: number) {
 
 export default function RulesPage() {
   const [rules, setRules] = useState<Rule[]>([]);
+  const [filter, setFilter] = useState("");
+  const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -27,37 +28,32 @@ export default function RulesPage() {
   async function handleDelete(id: string) {
     await api.deleteRule(id);
     setRules((prev) => prev.filter((r) => r.id !== id));
+    if (selected === id) setSelected(null);
   }
 
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return rules;
+    return rules.filter(
+      (r) => r.name.toLowerCase().includes(q) || r.path.toLowerCase().includes(q),
+    );
+  }, [rules, filter]);
+
+  const current = filtered.find((r) => r.id === selected) ?? filtered[0] ?? null;
+
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-line bg-inset px-6 py-4 flex items-center gap-6">
-        <span className="font-semibold tracking-tight text-ink">histori</span>
-        <nav className="flex gap-4 text-sm">
-          <Link to="/" className="text-muted hover:text-ink transition-colors">
-            Sessions
-          </Link>
-          <Link to="/memories" className="text-muted hover:text-ink transition-colors">
-            Memories
-          </Link>
-          <span className="text-ink font-medium">Rules</span>
-        </nav>
-      </header>
-
-      <main className="px-6 py-6 max-w-3xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-ink font-semibold">Rules registry</h1>
-            <p className="text-muted text-sm mt-1">
-              CLAUDE.md files collected across your projects. Served to Claude via the MCP server
-              in every session.
-            </p>
-          </div>
-          <span className="text-xs text-muted bg-surface border border-line rounded-full px-3 py-1">
-            histori rules sync
+    <div className="min-h-screen flex flex-col">
+      <TopBar
+        active="rules"
+        right={
+          <span>
+            {rules.length} rule{rules.length === 1 ? "" : "s"} ·{" "}
+            <code className="text-muted">histori rules sync</code>
           </span>
-        </div>
+        }
+      />
 
+      <main className="flex-1 min-w-0 p-4">
         {loading && <p className="text-muted text-sm">Loading…</p>}
         {error && <p className="text-neg-strong text-sm">{error}</p>}
 
@@ -76,43 +72,76 @@ export default function RulesPage() {
           </div>
         )}
 
-        <div className="space-y-3">
-          {rules.map((rule) => (
-            <div
-              key={rule.id}
-              className="border border-line rounded-xl bg-inset shadow-sm overflow-hidden"
-            >
-              <div
-                className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-surface/70 transition-colors"
-                onClick={() => setExpanded(expanded === rule.id ? null : rule.id)}
-              >
-                <div className="min-w-0">
-                  <span className="text-ink text-sm font-medium">{rule.name}</span>
-                  <p className="text-faint text-xs mt-0.5 truncate">{rule.path}</p>
-                </div>
-                <div className="flex items-center gap-3 shrink-0 ml-4">
-                  <span className="text-faint text-xs">{fmtDate(rule.updatedAt)}</span>
+        {!loading && !error && rules.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 items-start">
+            {/* List pane */}
+            <div>
+              <input
+                type="search"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Filter rules…"
+                className="w-full bg-inset border border-line rounded-md px-2.5 py-1.5 text-xs text-ink placeholder-faint outline-none focus:border-line-strong focus:ring-2 focus:ring-sage-tint transition-colors mb-2"
+              />
+              <Label className="px-1 mb-2">
+                Rules registry — {filtered.length} of {rules.length}
+              </Label>
+              <div className="space-y-1">
+                {filtered.map((r) => (
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void handleDelete(rule.id);
-                    }}
-                    className="text-faint hover:text-neg-strong text-xs transition-colors px-1"
+                    key={r.id}
+                    onClick={() => setSelected(r.id)}
+                    className={`w-full text-left px-3 py-2.5 rounded-md border transition-colors ${
+                      current?.id === r.id
+                        ? "bg-inset border-line shadow-sm"
+                        : "border-transparent hover:bg-inset/60"
+                    }`}
                   >
-                    delete
+                    <span className="text-xs font-medium text-ink block truncate">{r.name}</span>
+                    <p className="text-[10px] text-faint mt-0.5 truncate" title={r.path}>
+                      {r.path}
+                    </p>
+                    <p className="text-[10px] text-faint mt-0.5 tabular-nums">
+                      {fmtDate(r.updatedAt)} · {r.content.split("\n").length} lines
+                    </p>
                   </button>
-                  <span className="text-faint text-xs">{expanded === rule.id ? "▲" : "▼"}</span>
-                </div>
+                ))}
+                {filtered.length === 0 && (
+                  <p className="text-faint text-xs px-1 py-4">No rules match the filter.</p>
+                )}
               </div>
-
-              {expanded === rule.id && (
-                <pre className="px-4 pb-4 text-xs text-muted whitespace-pre-wrap leading-relaxed border-t border-line pt-3 overflow-auto max-h-96 bg-surface/40">
-                  {rule.content}
-                </pre>
-              )}
             </div>
-          ))}
-        </div>
+
+            {/* Reading pane */}
+            {current && (
+              <div className="bg-inset border border-line rounded-lg shadow-sm sticky top-16">
+                <div className="px-4 py-3 border-b border-line flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <Label>CLAUDE.md</Label>
+                    <h2 className="text-ink text-sm font-medium mt-1">{current.name}</h2>
+                    <p className="text-[10px] text-faint mt-0.5 truncate" title={current.path}>
+                      {current.path}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-[10px] text-faint tabular-nums">
+                      updated {fmtDate(current.updatedAt)}
+                    </span>
+                    <button
+                      onClick={() => void handleDelete(current.id)}
+                      className="text-faint hover:text-neg-strong text-xs transition-colors"
+                    >
+                      delete
+                    </button>
+                  </div>
+                </div>
+                <pre className="px-4 py-3 text-xs text-muted whitespace-pre-wrap leading-relaxed overflow-auto max-h-[75vh] font-mono">
+                  {current.content}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );
