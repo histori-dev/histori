@@ -110,13 +110,13 @@ function ChurnChart({ buckets }: { buckets: Bucket[] }) {
             title={`${b.label} — ${b.sessions} session${b.sessions === 1 ? "" : "s"}, +${b.added}/-${b.removed} lines`}
           >
             <div
-              className="w-full rounded-t-sm bg-emerald-500/80 group-hover:bg-emerald-400 transition-colors"
+              className="w-full rounded-t-sm bg-pos-soft group-hover:bg-accent transition-colors"
               style={{ height: `${(b.added / max) * 100}%`, minHeight: b.added ? "2px" : "0" }}
             />
           </div>
         ))}
       </div>
-      <div className="border-t border-zinc-700/80" />
+      <div className="border-t border-line-strong" />
       <div className="flex items-start gap-px h-16">
         {buckets.map((b, i) => (
           <div
@@ -125,7 +125,7 @@ function ChurnChart({ buckets }: { buckets: Bucket[] }) {
             title={`${b.label} — ${b.sessions} session${b.sessions === 1 ? "" : "s"}, +${b.added}/-${b.removed} lines`}
           >
             <div
-              className="w-full rounded-b-sm bg-red-500/70 group-hover:bg-red-400 transition-colors"
+              className="w-full rounded-b-sm bg-neg/60 group-hover:bg-neg transition-colors"
               style={{ height: `${(b.removed / max) * 100}%`, minHeight: b.removed ? "2px" : "0" }}
             />
           </div>
@@ -133,7 +133,7 @@ function ChurnChart({ buckets }: { buckets: Bucket[] }) {
       </div>
       <div className="flex gap-px mt-1">
         {buckets.map((b, i) => (
-          <span key={i} className="flex-1 text-center text-[10px] text-zinc-600 truncate">
+          <span key={i} className="flex-1 text-center text-[10px] text-faint truncate">
             {i % labelEvery === 0 ? b.label : ""}
           </span>
         ))}
@@ -152,9 +152,9 @@ function StatCard({
   accent?: string;
 }) {
   return (
-    <div className="border border-zinc-800 rounded-xl bg-zinc-900/40 px-4 py-3">
-      <p className={`text-xl font-semibold tracking-tight ${accent ?? "text-zinc-100"}`}>{value}</p>
-      <p className="text-xs text-zinc-500 mt-0.5">{label}</p>
+    <div className="border border-line rounded-xl bg-inset shadow-sm px-4 py-3">
+      <p className={`text-xl font-semibold tracking-tight ${accent ?? "text-ink"}`}>{value}</p>
+      <p className="text-xs text-faint mt-0.5">{label}</p>
     </div>
   );
 }
@@ -229,15 +229,15 @@ export default function SessionsPage() {
   return (
     <div className="min-h-screen">
       {/* Nav */}
-      <header className="border-b border-zinc-800 px-6 py-4 flex items-center gap-4">
-        <span className="font-semibold tracking-tight text-zinc-100 shrink-0">histori</span>
+      <header className="border-b border-line bg-inset px-6 py-4 flex items-center gap-4">
+        <span className="font-semibold tracking-tight text-ink shrink-0">histori</span>
 
         <nav className="flex gap-4 text-sm shrink-0">
-          <span className="text-zinc-300">Sessions</span>
-          <Link to="/memories" className="text-zinc-500 hover:text-zinc-300 transition-colors">
+          <span className="text-ink font-medium">Sessions</span>
+          <Link to="/memories" className="text-muted hover:text-ink transition-colors">
             Memories
           </Link>
-          <Link to="/rules" className="text-zinc-500 hover:text-zinc-300 transition-colors">
+          <Link to="/rules" className="text-muted hover:text-ink transition-colors">
             Rules
           </Link>
         </nav>
@@ -247,28 +247,28 @@ export default function SessionsPage() {
           value={query}
           onChange={(e) => onSearch(e.target.value)}
           placeholder="Search sessions…"
-          className="flex-1 max-w-sm bg-zinc-900 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-500 transition-colors"
+          className="flex-1 max-w-sm bg-surface border border-line rounded-md px-3 py-1.5 text-sm text-ink placeholder-faint outline-none focus:border-line-strong focus:ring-2 focus:ring-sage-tint transition-colors"
         />
-        {searching && <span className="text-zinc-600 text-sm">Searching…</span>}
+        {searching && <span className="text-faint text-sm">Searching…</span>}
       </header>
 
       <main className="px-6 py-6 max-w-5xl mx-auto">
-        {loading && <p className="text-zinc-500 text-sm">Loading...</p>}
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {loading && <p className="text-muted text-sm">Loading...</p>}
+        {error && <p className="text-neg-strong text-sm">{error}</p>}
 
         {!loading && !error && (
           <>
             {/* Filters */}
             <div className="flex items-center gap-3 mb-6 flex-wrap">
-              <div className="flex bg-zinc-900 border border-zinc-800 rounded-full p-0.5">
+              <div className="flex bg-surface border border-line rounded-full p-0.5">
                 {RANGES.map((r) => (
                   <button
                     key={r.key}
                     onClick={() => setRange(r.key)}
                     className={`px-3.5 py-1 text-xs rounded-full transition-colors ${
                       range === r.key
-                        ? "bg-zinc-100 text-zinc-900 font-medium"
-                        : "text-zinc-400 hover:text-zinc-200"
+                        ? "bg-accent text-white font-medium shadow-sm"
+                        : "text-muted hover:text-ink"
                     }`}
                   >
                     {r.label}
@@ -279,7 +279,7 @@ export default function SessionsPage() {
               <select
                 value={project}
                 onChange={(e) => setProject(e.target.value)}
-                className="bg-zinc-900 border border-zinc-800 rounded-full px-3.5 py-1.5 text-xs text-zinc-300 outline-none focus:border-zinc-600 cursor-pointer"
+                className="bg-surface border border-line rounded-full px-3.5 py-1.5 text-xs text-ink outline-none focus:border-line-strong cursor-pointer"
               >
                 <option value="all">All projects</option>
                 {projects.map((p) => (
@@ -298,35 +298,31 @@ export default function SessionsPage() {
                 label="lines changed"
                 value={
                   <span className="font-mono text-base">
-                    <span className="text-emerald-400">+{fmtTokens(stats.added)}</span>
-                    <span className="text-zinc-700">/</span>
-                    <span className="text-red-400">-{fmtTokens(stats.removed)}</span>
+                    <span className="text-pos">+{fmtTokens(stats.added)}</span>
+                    <span className="text-faint">/</span>
+                    <span className="text-neg">-{fmtTokens(stats.removed)}</span>
                   </span>
                 }
               />
               <StatCard label="tokens" value={fmtTokens(stats.tokens)} />
-              <StatCard
-                label="cost"
-                value={`$${stats.cost.toFixed(2)}`}
-                accent="text-emerald-400"
-              />
+              <StatCard label="cost" value={`$${stats.cost.toFixed(2)}`} accent="text-warm" />
             </div>
 
             {/* Churn chart */}
-            <div className="border border-zinc-800 rounded-xl bg-zinc-900/40 px-4 pt-4 pb-3 mb-8">
+            <div className="border border-line rounded-xl bg-inset shadow-sm px-4 pt-4 pb-3 mb-8">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs text-zinc-500 uppercase tracking-wider">
+                <p className="text-xs text-muted uppercase tracking-wider">
                   Code changes {RANGES.find((r) => r.key === range)?.label.toLowerCase()}
                 </p>
-                <p className="text-[11px] text-zinc-600">
-                  <span className="text-emerald-500">■</span> added{" "}
-                  <span className="text-red-500 ml-2">■</span> removed
+                <p className="text-[11px] text-faint">
+                  <span className="text-pos-soft">■</span> added{" "}
+                  <span className="text-neg ml-2">■</span> removed
                 </p>
               </div>
               {hasChurn ? (
                 <ChurnChart buckets={buckets} />
               ) : (
-                <p className="text-zinc-600 text-xs py-10 text-center">
+                <p className="text-faint text-xs py-10 text-center">
                   No code changes in this range.
                 </p>
               )}
@@ -334,17 +330,15 @@ export default function SessionsPage() {
 
             {/* Sessions table */}
             {filtered.length === 0 ? (
-              <div className="text-center py-14 text-zinc-500">
+              <div className="text-center py-14 text-muted">
                 <p className="text-sm">
-                  {allSessions.length === 0
-                    ? "No sessions yet."
-                    : "No sessions in this range."}
+                  {allSessions.length === 0 ? "No sessions yet." : "No sessions in this range."}
                 </p>
-                <p className="text-xs mt-1">
+                <p className="text-xs mt-1 text-faint">
                   {allSessions.length === 0 ? (
                     <>
-                      Run <code className="text-zinc-400">histori up</code> and start a Claude
-                      Code session.
+                      Run <code className="text-ink bg-surface px-1 rounded">histori up</code> and
+                      start a Claude Code session.
                     </>
                   ) : (
                     "Try a wider time range or a different project."
@@ -352,79 +346,81 @@ export default function SessionsPage() {
                 </p>
               </div>
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-zinc-500 border-b border-zinc-800">
-                    <th className="pb-3 font-normal">Date</th>
-                    <th className="pb-3 font-normal">Directory</th>
-                    <th className="pb-3 font-normal">Changes</th>
-                    <th className="pb-3 font-normal">Model</th>
-                    <th className="pb-3 font-normal text-right">Tokens</th>
-                    <th className="pb-3 font-normal text-right">Cost</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((s) => (
-                    <tr
-                      key={s.id}
-                      className="border-b border-zinc-800/40 hover:bg-zinc-900/60 transition-colors"
-                    >
-                      <td className="py-3 pr-6 text-zinc-500 whitespace-nowrap">
-                        {fmtDate(s.startedAt)}
-                      </td>
-                      <td className="py-3 pr-6 max-w-xs">
-                        <Link
-                          to={`/sessions/${s.id}`}
-                          className="text-zinc-200 hover:text-blue-400 transition-colors truncate block"
-                        >
-                          {shortDir(s.cwd)}
-                        </Link>
-                        {s.repo && (
-                          <span className="text-zinc-600 text-xs">
-                            {s.repo}
-                            {s.branch ? `@${s.branch}` : ""}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 pr-6 whitespace-nowrap">
-                        {s.filesChanged > 0 ? (
-                          <span className="text-xs">
-                            <span className="text-zinc-400">
-                              {s.filesChanged} file{s.filesChanged === 1 ? "" : "s"}
-                            </span>{" "}
-                            <span className="font-mono">
-                              <span className="text-emerald-500">+{s.linesAdded}</span>
-                              <span className="text-zinc-700">/</span>
-                              <span className="text-red-500">-{s.linesRemoved}</span>
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="text-zinc-700 text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="py-3 pr-6 text-zinc-600 text-xs whitespace-nowrap">
-                        {shortModel(s.model)}
-                      </td>
-                      <td className="py-3 pr-6 text-right text-zinc-400">
-                        {fmtTokens(s.inputTokens + s.outputTokens)}
-                      </td>
-                      <td className="py-3 text-right">
-                        <span
-                          className={
-                            s.costUsd > 1
-                              ? "text-amber-400"
-                              : s.costUsd > 0
-                                ? "text-emerald-400"
-                                : "text-zinc-600"
-                          }
-                        >
-                          ${s.costUsd.toFixed(4)}
-                        </span>
-                      </td>
+              <div className="border border-line rounded-xl bg-inset shadow-sm overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-faint border-b border-line bg-surface/60">
+                      <th className="py-3 px-4 font-normal">Date</th>
+                      <th className="py-3 pr-4 font-normal">Directory</th>
+                      <th className="py-3 pr-4 font-normal">Changes</th>
+                      <th className="py-3 pr-4 font-normal">Model</th>
+                      <th className="py-3 pr-4 font-normal text-right">Tokens</th>
+                      <th className="py-3 pr-4 font-normal text-right">Cost</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filtered.map((s) => (
+                      <tr
+                        key={s.id}
+                        className="border-b border-line last:border-0 hover:bg-surface/70 transition-colors"
+                      >
+                        <td className="py-3 px-4 text-muted whitespace-nowrap">
+                          {fmtDate(s.startedAt)}
+                        </td>
+                        <td className="py-3 pr-4 max-w-xs">
+                          <Link
+                            to={`/sessions/${s.id}`}
+                            className="text-ink hover:text-accent font-medium transition-colors truncate block"
+                          >
+                            {shortDir(s.cwd)}
+                          </Link>
+                          {s.repo && (
+                            <span className="text-faint text-xs">
+                              {s.repo}
+                              {s.branch ? `@${s.branch}` : ""}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 pr-4 whitespace-nowrap">
+                          {s.filesChanged > 0 ? (
+                            <span className="text-xs">
+                              <span className="text-muted">
+                                {s.filesChanged} file{s.filesChanged === 1 ? "" : "s"}
+                              </span>{" "}
+                              <span className="font-mono">
+                                <span className="text-pos">+{s.linesAdded}</span>
+                                <span className="text-faint">/</span>
+                                <span className="text-neg">-{s.linesRemoved}</span>
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="text-faint text-xs">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 pr-4 text-faint text-xs whitespace-nowrap">
+                          {shortModel(s.model)}
+                        </td>
+                        <td className="py-3 pr-4 text-right text-muted">
+                          {fmtTokens(s.inputTokens + s.outputTokens)}
+                        </td>
+                        <td className="py-3 pr-4 text-right">
+                          <span
+                            className={
+                              s.costUsd > 1
+                                ? "text-warm font-medium"
+                                : s.costUsd > 0
+                                  ? "text-accent"
+                                  : "text-faint"
+                            }
+                          >
+                            ${s.costUsd.toFixed(4)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </>
         )}

@@ -3,15 +3,15 @@ import { Link, useParams } from "react-router";
 import { api, type SessionDetail, type HookEvent } from "../api";
 
 const KIND_COLOR: Record<string, string> = {
-  SessionStart: "text-blue-400",
-  UserPromptSubmit: "text-violet-400",
-  PreToolUse: "text-yellow-400",
-  PostToolUse: "text-emerald-400",
-  GitCommit: "text-orange-400",
-  Stop: "text-zinc-500",
-  SubagentStop: "text-zinc-500",
-  Notification: "text-sky-400",
-  PreCompact: "text-orange-400",
+  SessionStart: "text-sage",
+  UserPromptSubmit: "text-warm",
+  PreToolUse: "text-faint",
+  PostToolUse: "text-accent",
+  GitCommit: "text-warm",
+  Stop: "text-faint",
+  SubagentStop: "text-faint",
+  Notification: "text-faint",
+  PreCompact: "text-warm",
 };
 
 // PreToolUse duplicates PostToolUse for every call; Stop/Notification carry
@@ -140,7 +140,9 @@ function turnSummary(t: Turn): string {
 
   const listFiles = (s: Set<string>) => {
     const arr = [...s];
-    return arr.length <= 3 ? arr.join(", ") : `${arr.slice(0, 3).join(", ")} +${arr.length - 3} more`;
+    return arr.length <= 3
+      ? arr.join(", ")
+      : `${arr.slice(0, 3).join(", ")} +${arr.length - 3} more`;
   };
 
   const parts: string[] = [];
@@ -148,7 +150,8 @@ function turnSummary(t: Turn): string {
   if (edited.size) parts.push(`edited ${listFiles(edited)}`);
   if (commands) parts.push(`ran ${commands} command${commands === 1 ? "" : "s"}`);
   if (fetches) parts.push(`fetched ${fetches} page${fetches === 1 ? "" : "s"}`);
-  if (reads && !wrote.size && !edited.size) parts.push(`read ${reads} file${reads === 1 ? "" : "s"}`);
+  if (reads && !wrote.size && !edited.size)
+    parts.push(`read ${reads} file${reads === 1 ? "" : "s"}`);
   if (commits) parts.push(`${commits} git commit${commits === 1 ? "" : "s"}`);
   return parts.join(" · ");
 }
@@ -200,22 +203,22 @@ export default function SessionDetailPage() {
   return (
     <div className="min-h-screen">
       {/* Nav */}
-      <header className="border-b border-zinc-800 px-6 py-4">
-        <Link to="/" className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors">
+      <header className="border-b border-line bg-inset px-6 py-4">
+        <Link to="/" className="text-sm text-muted hover:text-ink transition-colors">
           ← Sessions
         </Link>
       </header>
 
       <main className="px-6 py-6 max-w-6xl mx-auto">
-        {loading && <p className="text-zinc-500 text-sm">Loading...</p>}
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {loading && <p className="text-muted text-sm">Loading...</p>}
+        {error && <p className="text-neg-strong text-sm">{error}</p>}
 
         {data && (
           <>
             {/* Session header */}
             <div className="mb-8">
-              <h1 className="text-zinc-100 font-medium text-base">{data.session.cwd}</h1>
-              <div className="flex flex-wrap gap-4 mt-2 text-sm text-zinc-500">
+              <h1 className="text-ink font-semibold text-base">{data.session.cwd}</h1>
+              <div className="flex flex-wrap gap-4 mt-2 text-sm text-muted">
                 <span>{fmtDate(data.session.startedAt)}</span>
                 {data.session.repo && (
                   <span>
@@ -223,27 +226,25 @@ export default function SessionDetailPage() {
                     {data.session.branch ? `@${data.session.branch}` : ""}
                   </span>
                 )}
-                {data.session.model && <span className="text-zinc-600">{data.session.model}</span>}
+                {data.session.model && <span className="text-faint">{data.session.model}</span>}
               </div>
               <div className="flex gap-4 mt-2 text-sm">
                 {fileAgg.length > 0 && (
                   <span className="font-mono text-xs pt-0.5">
-                    <span className="text-zinc-400 font-sans">{fileAgg.length} files </span>
-                    <span className="text-emerald-500">
+                    <span className="text-muted font-sans">{fileAgg.length} files </span>
+                    <span className="text-pos">
                       +{fileAgg.reduce((s, [, v]) => s + v.added, 0)}
                     </span>
-                    <span className="text-zinc-700">/</span>
-                    <span className="text-red-500">
+                    <span className="text-faint">/</span>
+                    <span className="text-neg">
                       -{fileAgg.reduce((s, [, v]) => s + v.removed, 0)}
                     </span>
                   </span>
                 )}
-                <span className="text-zinc-400">
+                <span className="text-muted">
                   {(data.session.inputTokens + data.session.outputTokens).toLocaleString()} tokens
                 </span>
-                <span
-                  className={data.session.costUsd > 1 ? "text-amber-400" : "text-emerald-400"}
-                >
+                <span className={data.session.costUsd > 1 ? "text-warm font-medium" : "text-accent"}>
                   ${data.session.costUsd.toFixed(4)}
                 </span>
               </div>
@@ -253,21 +254,21 @@ export default function SessionDetailPage() {
               {/* Timeline grouped by prompt */}
               <section>
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-xs text-zinc-500 uppercase tracking-wider">
+                  <h2 className="text-xs text-muted uppercase tracking-wider">
                     Timeline — {turns.filter((t) => t.prompt !== null).length} prompts
                   </h2>
                   <div className="flex items-center gap-3">
                     {fileFilter && (
                       <button
                         onClick={() => setFileFilter(null)}
-                        className="text-xs bg-zinc-800 text-zinc-300 rounded px-2 py-0.5 hover:bg-zinc-700 transition-colors"
+                        className="text-xs bg-sage-tint text-accent rounded-full px-2.5 py-0.5 hover:bg-sage/40 transition-colors"
                       >
                         {baseName(fileFilter)} ✕
                       </button>
                     )}
                     <button
                       onClick={() => setShowAll(!showAll)}
-                      className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
+                      className="text-xs text-faint hover:text-muted transition-colors"
                     >
                       {showAll ? "hide noise" : "all events"}
                     </button>
@@ -278,83 +279,82 @@ export default function SessionDetailPage() {
                   {shownTurns.map((t) => {
                     const stats = turnStats(t);
                     const evs = visibleEvents(t);
+                    const summary = turnSummary(t);
                     return (
-                      <div key={t.n} className="border border-zinc-800 rounded-lg overflow-hidden">
+                      <div
+                        key={t.n}
+                        className="border border-line rounded-xl bg-inset shadow-sm overflow-hidden"
+                      >
                         {/* Prompt header — the "why" of every change below it */}
-                        <div className="px-4 py-3 bg-zinc-900/60 border-b border-zinc-800">
+                        <div className="px-4 py-3 bg-surface border-b border-line">
                           {t.prompt === null ? (
-                            <span className="text-zinc-500 text-xs">session start</span>
+                            <span className="text-faint text-xs">session start</span>
                           ) : (
                             <div className="flex items-start gap-2">
-                              <span className="text-violet-400 text-xs font-mono shrink-0 pt-0.5">
+                              <span className="text-warm text-xs font-mono shrink-0 pt-0.5">
                                 ❯ {t.n}
                               </span>
-                              <p className="text-zinc-200 text-sm leading-relaxed">
+                              <p className="text-ink text-sm leading-relaxed">
                                 {t.prompt.length > 280 ? `${t.prompt.slice(0, 280)}…` : t.prompt}
                               </p>
                             </div>
                           )}
-                          {(() => {
-                            const summary = turnSummary(t);
-                            return (
-                              (summary || stats.files > 0) && (
-                                <p className="text-xs mt-1.5 ml-6">
-                                  {summary && <span className="text-zinc-400">{summary}</span>}
-                                  {stats.files > 0 && (
-                                    <span className="font-mono ml-2">
-                                      <span className="text-emerald-500">+{stats.added}</span>
-                                      <span className="text-zinc-700">/</span>
-                                      <span className="text-red-500">-{stats.removed}</span>
-                                    </span>
-                                  )}
-                                </p>
-                              )
-                            );
-                          })()}
+                          {(summary || stats.files > 0) && (
+                            <p className="text-xs mt-1.5 ml-6">
+                              {summary && <span className="text-muted">{summary}</span>}
+                              {stats.files > 0 && (
+                                <span className="font-mono ml-2">
+                                  <span className="text-pos">+{stats.added}</span>
+                                  <span className="text-faint">/</span>
+                                  <span className="text-neg">-{stats.removed}</span>
+                                </span>
+                              )}
+                            </p>
+                          )}
                         </div>
 
                         {/* Events of this turn */}
                         <div className="px-4">
                           {evs.length === 0 && (
-                            <p className="text-zinc-700 text-xs py-2">no file changes this turn</p>
+                            <p className="text-faint text-xs py-2">no file changes this turn</p>
                           )}
                           {evs.map((e) => {
                             const diff = extractDiff(e);
                             const expanded = fileFilter !== null || expandedEvent === e.id;
                             return (
-                              <div key={e.id} className="border-b border-zinc-800/40 last:border-0">
+                              <div key={e.id} className="border-b border-line last:border-0">
                                 <div
-                                  className={`flex gap-3 py-2 items-start ${diff ? "cursor-pointer hover:bg-zinc-900/50" : ""}`}
+                                  className={`flex gap-3 py-2 items-start ${diff ? "cursor-pointer hover:bg-surface/70" : ""}`}
                                   onClick={() =>
                                     diff && !fileFilter && setExpandedEvent(expanded ? null : e.id)
                                   }
                                 >
                                   <span
-                                    className={`text-xs font-mono shrink-0 w-28 pt-0.5 ${KIND_COLOR[e.kind] ?? "text-zinc-500"}`}
+                                    className={`text-xs font-mono shrink-0 w-28 pt-0.5 ${KIND_COLOR[e.kind] ?? "text-faint"}`}
                                   >
                                     {e.kind === "PostToolUse" ? "ToolUse" : e.kind}
                                   </span>
-                                  <span className="text-zinc-500 text-xs leading-relaxed flex-1">
+                                  <span className="text-muted text-xs leading-relaxed flex-1">
                                     {payloadPreview(e).slice(0, 160)}
                                   </span>
                                   {diff && !fileFilter && (
-                                    <span className="text-zinc-600 text-xs shrink-0">
+                                    <span className="text-faint text-xs shrink-0">
                                       {expanded ? "▲" : "diff ▼"}
                                     </span>
                                   )}
                                 </div>
 
                                 {expanded && diff && (
-                                  <div className="mb-3 rounded border border-zinc-800 overflow-hidden text-xs font-mono">
-                                    <div className="px-3 py-1.5 bg-zinc-900 text-zinc-400 border-b border-zinc-800">
+                                  <div className="mb-3 rounded-lg border border-line overflow-hidden text-xs font-mono">
+                                    <div className="px-3 py-1.5 bg-surface text-muted border-b border-line">
                                       {diff.path}
                                     </div>
                                     {diff.old && (
-                                      <pre className="px-3 py-2 bg-red-950/30 text-red-300/90 whitespace-pre-wrap break-all max-h-64 overflow-auto border-b border-zinc-800">
+                                      <pre className="px-3 py-2 bg-neg-tint text-neg-strong whitespace-pre-wrap break-all max-h-64 overflow-auto border-b border-line">
                                         {diff.old}
                                       </pre>
                                     )}
-                                    <pre className="px-3 py-2 bg-emerald-950/30 text-emerald-300/90 whitespace-pre-wrap break-all max-h-64 overflow-auto">
+                                    <pre className="px-3 py-2 bg-sage-tint text-accent-strong whitespace-pre-wrap break-all max-h-64 overflow-auto">
                                       {diff.new}
                                     </pre>
                                   </div>
@@ -371,35 +371,35 @@ export default function SessionDetailPage() {
 
               {/* Files changed — click one to see all its edits */}
               <section>
-                <h2 className="text-xs text-zinc-500 uppercase tracking-wider mb-3">
+                <h2 className="text-xs text-muted uppercase tracking-wider mb-3">
                   Files changed ({fileAgg.length})
-                  <span className="normal-case tracking-normal text-zinc-600 ml-2">
+                  <span className="normal-case tracking-normal text-faint ml-2">
                     — click to trace edits
                   </span>
                 </h2>
                 {fileAgg.length === 0 ? (
-                  <p className="text-zinc-700 text-xs">No files recorded</p>
+                  <p className="text-faint text-xs">No files recorded</p>
                 ) : (
-                  <div className="space-y-0">
+                  <div className="border border-line rounded-xl bg-inset shadow-sm px-3 py-1">
                     {fileAgg.map(([path, agg]) => (
                       <div
                         key={path}
                         onClick={() => setFileFilter(fileFilter === path ? null : path)}
-                        className={`py-2 border-b border-zinc-800/40 cursor-pointer px-2 -mx-2 rounded transition-colors ${
-                          fileFilter === path ? "bg-zinc-800/60" : "hover:bg-zinc-900/60"
+                        className={`py-2 border-b border-line last:border-0 cursor-pointer px-2 -mx-2 transition-colors ${
+                          fileFilter === path ? "bg-sage-tint" : "hover:bg-surface/70"
                         }`}
                       >
                         <div className="flex justify-between items-center">
-                          <span className="text-zinc-300 text-xs truncate mr-2" title={path}>
+                          <span className="text-ink text-xs font-medium truncate mr-2" title={path}>
                             {baseName(path)}
                           </span>
                           <span className="text-xs shrink-0 font-mono">
-                            <span className="text-emerald-500">+{agg.added}</span>
-                            <span className="text-zinc-700 mx-0.5">/</span>
-                            <span className="text-red-500">-{agg.removed}</span>
+                            <span className="text-pos">+{agg.added}</span>
+                            <span className="text-faint mx-0.5">/</span>
+                            <span className="text-neg">-{agg.removed}</span>
                           </span>
                         </div>
-                        <div className="flex justify-between text-[11px] text-zinc-600 mt-0.5">
+                        <div className="flex justify-between text-[11px] text-faint mt-0.5">
                           <span className="truncate mr-2">{path}</span>
                           <span className="shrink-0">
                             {agg.edits} edit{agg.edits === 1 ? "" : "s"}
