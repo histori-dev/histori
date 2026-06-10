@@ -3,6 +3,7 @@ import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { createRequire } from "node:module";
 import kleur from "kleur";
+import { fileURLToPath } from "node:url";
 
 const requireFn = createRequire(import.meta.url);
 
@@ -55,10 +56,22 @@ export function install() {
     }
   }
 
+  // Register the MCP server so Claude Code can query your session history
+  const mcpEntry = requireFn.resolve("@histori/mcp");
+  settings.mcpServers ??= {};
+  if (!settings.mcpServers.histori) {
+    settings.mcpServers.histori = {
+      command: "npx",
+      args: ["tsx", mcpEntry],
+    };
+  }
+
   writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
 
   console.log(kleur.green("✓") + " histori hooks installed");
+  console.log(kleur.green("✓") + " histori MCP server registered");
   console.log(kleur.gray(`  capture: ${hookPath}`));
+  console.log(kleur.gray(`  mcp:     ${mcpEntry}`));
   console.log(kleur.gray(`  settings: ${settingsPath}`));
   console.log();
   console.log("Next: " + kleur.cyan("histori up") + " to start the daemon");
