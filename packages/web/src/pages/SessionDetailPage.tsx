@@ -102,6 +102,57 @@ function turnStats(t: Turn): { files: number; added: number; removed: number } {
   return { files: paths.size, added, removed };
 }
 
+const SHELL_TOOLS = new Set(["Bash", "PowerShell", "Shell"]);
+const READ_TOOLS = new Set(["Read", "Glob", "Grep"]);
+const FETCH_TOOLS = new Set(["WebFetch", "WebSearch"]);
+
+/** A human-readable line of what the agent actually did this turn. */
+function turnSummary(t: Turn): string {
+  const wrote = new Set<string>();
+  const edited = new Set<string>();
+  let commands = 0;
+  let reads = 0;
+  let fetches = 0;
+  let commits = 0;
+
+  for (const e of t.events) {
+    if (e.kind === "GitCommit") {
+      commits += 1;
+      continue;
+    }
+    if (e.kind !== "PostToolUse") continue;
+    const tool = String(e.payload["tool_name"] ?? "");
+    const input = e.payload["tool_input"] as Record<string, unknown> | undefined;
+    const path = (input?.["file_path"] ?? input?.["path"]) as string | undefined;
+
+    if (path && (input?.["old_string"] !== undefined || input?.["old_str"] !== undefined)) {
+      edited.add(baseName(path));
+    } else if (path && input?.["content"] !== undefined) {
+      wrote.add(baseName(path));
+    } else if (SHELL_TOOLS.has(tool)) {
+      commands += 1;
+    } else if (READ_TOOLS.has(tool)) {
+      reads += 1;
+    } else if (FETCH_TOOLS.has(tool)) {
+      fetches += 1;
+    }
+  }
+
+  const listFiles = (s: Set<string>) => {
+    const arr = [...s];
+    return arr.length <= 3 ? arr.join(", ") : `${arr.slice(0, 3).join(", ")} +${arr.length - 3} more`;
+  };
+
+  const parts: string[] = [];
+  if (wrote.size) parts.push(`wrote ${listFiles(wrote)}`);
+  if (edited.size) parts.push(`edited ${listFiles(edited)}`);
+  if (commands) parts.push(`ran ${commands} command${commands === 1 ? "" : "s"}`);
+  if (fetches) parts.push(`fetched ${fetches} page${fetches === 1 ? "" : "s"}`);
+  if (reads && !wrote.size && !edited.size) parts.push(`read ${reads} file${reads === 1 ? "" : "s"}`);
+  if (commits) parts.push(`${commits} git commit${commits === 1 ? "" : "s"}`);
+  return parts.join(" · ");
+}
+
 export default function SessionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [data, setData] = useState<SessionDetail | null>(null);
@@ -243,16 +294,23 @@ export default function SessionDetailPage() {
                               </p>
                             </div>
                           )}
-                          {stats.files > 0 && (
-                            <p className="text-xs mt-1.5 ml-6 font-mono">
-                              <span className="text-zinc-500 font-sans">
-                                changed {stats.files} file{stats.files === 1 ? "" : "s"}{" "}
-                              </span>
-                              <span className="text-emerald-500">+{stats.added}</span>
-                              <span className="text-zinc-700">/</span>
-                              <span className="text-red-500">-{stats.removed}</span>
-                            </p>
-                          )}
+                          {(() => {
+                            const summary = turnSummary(t);
+                            return (
+                              (summary || stats.files > 0) && (
+                                <p className="text-xs mt-1.5 ml-6">
+                                  {summary && <span className="text-zinc-400">{summary}</span>}
+                                  {stats.files > 0 && (
+                                    <span className="font-mono ml-2">
+                                      <span className="text-emerald-500">+{stats.added}</span>
+                                      <span className="text-zinc-700">/</span>
+                                      <span className="text-red-500">-{stats.removed}</span>
+                                    </span>
+                                  )}
+                                </p>
+                              )
+                            );
+                          })()}
                         </div>
 
                         {/* Events of this turn */}
