@@ -1,0 +1,22 @@
+{
+  "name": "@histori/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@histori/db": "workspace:*",
+    "@histori/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "drizzle-orm": "^0.36.0",
+    "zod": "^3.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

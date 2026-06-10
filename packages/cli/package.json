@@ -18,10 +18,14 @@
   },
   "dependencies": {
     "@histori/daemon": "workspace:*",
+    "@histori/db": "workspace:*",
     "@histori/hooks": "workspace:*",
+    "@histori/mcp": "workspace:*",
     "@histori/shared": "workspace:*",
     "cac": "^6.7.14",
-    "kleur": "^4.1.5"
+    "drizzle-orm": "^0.36.0",
+    "kleur": "^4.1.5",
+    "nanoid": "^5.0.0"
   },
   "devDependencies": {
     "tsx": "^4.19.0",
