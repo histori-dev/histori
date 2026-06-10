@@ -2,8 +2,8 @@ import { mkdirSync, existsSync, readFileSync, writeFileSync, copyFileSync } from
 import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { createRequire } from "node:module";
+import { spawnSync } from "node:child_process";
 import kleur from "kleur";
-import { fileURLToPath } from "node:url";
 
 const requireFn = createRequire(import.meta.url);
 
@@ -17,6 +17,17 @@ const HOOK_KINDS = [
   "Notification",
   "PreCompact",
 ] as const;
+
+/** Does this hook entry (matcher group or legacy flat entry) point at our capture script? */
+function isHistoriEntry(entry: any): boolean {
+  if (typeof entry?.command === "string") return entry.command.includes("capture.cjs");
+  if (Array.isArray(entry?.hooks)) {
+    return entry.hooks.some(
+      (h: any) => typeof h?.command === "string" && h.command.includes("capture.cjs"),
+    );
+  }
+  return false;
+}
 
 export function install() {
   const home = homedir();
@@ -44,35 +55,54 @@ export function install() {
   settings.hooks ??= {};
 
   for (const kind of HOOK_KINDS) {
-    settings.hooks[kind] ??= [];
-    const already = (settings.hooks[kind] as any[]).some(
-      (h) => typeof h?.command === "string" && h.command.includes("histori"),
-    );
-    if (!already) {
-      settings.hooks[kind].push({
-        type: "command",
-        command: `node "${hookPath}" ${kind}`,
-      });
-    }
+    const entries: any[] = settings.hooks[kind] ?? [];
+    // Self-heal: drop every old histori entry (including malformed flat ones
+    // written by earlier versions), then add back exactly one correct group.
+    const cleaned = entries.filter((e) => !isHistoriEntry(e));
+    cleaned.push({
+      hooks: [{ type: "command", command: `node "${hookPath}" ${kind}` }],
+    });
+    settings.hooks[kind] = cleaned;
   }
 
-  // Register the MCP server so Claude Code can query your session history
-  const mcpEntry = requireFn.resolve("@histori/mcp");
-  settings.mcpServers ??= {};
-  if (!settings.mcpServers.histori) {
-    settings.mcpServers.histori = {
-      command: "npx",
-      args: ["tsx", mcpEntry],
-    };
+  // Clean up the mcpServers key earlier versions wrote here — Claude Code
+  // does not read MCP servers from settings.json.
+  if (settings.mcpServers?.histori) {
+    delete settings.mcpServers.histori;
+    if (Object.keys(settings.mcpServers).length === 0) delete settings.mcpServers;
   }
 
   writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
-
   console.log(kleur.green("✓") + " histori hooks installed");
-  console.log(kleur.green("✓") + " histori MCP server registered");
-  console.log(kleur.gray(`  capture: ${hookPath}`));
-  console.log(kleur.gray(`  mcp:     ${mcpEntry}`));
+  console.log(kleur.gray(`  capture:  ${hookPath}`));
   console.log(kleur.gray(`  settings: ${settingsPath}`));
+
+  // Register the MCP server at user scope via the claude CLI — the canonical
+  // way; it writes to ~/.claude.json which is where Claude Code actually
+  // reads MCP servers from.
+  const mcpEntry = requireFn.resolve("@histori/mcp");
+  const result = spawnSync(
+    "claude",
+    ["mcp", "add", "--scope", "user", "histori", "--", "npx", "tsx", mcpEntry],
+    { encoding: "utf8", shell: process.platform === "win32" },
+  );
+  if (result.status === 0) {
+    console.log(kleur.green("✓") + " histori MCP server registered (user scope)");
+    console.log(kleur.gray(`  mcp:      ${mcpEntry}`));
+  } else {
+    const detail = (result.stderr || result.stdout || "").trim();
+    if (detail.includes("already exists")) {
+      console.log(kleur.green("✓") + " histori MCP server already registered");
+    } else {
+      console.log(kleur.yellow("!") + " could not register MCP server automatically");
+      if (detail) console.log(kleur.gray(`  ${detail.split("\n")[0]}`));
+      console.log(
+        kleur.gray("  run manually: ") +
+          kleur.cyan(`claude mcp add --scope user histori -- npx tsx "${mcpEntry}"`),
+      );
+    }
+  }
+
   console.log();
   console.log("Next: " + kleur.cyan("histori up") + " to start the daemon");
 }

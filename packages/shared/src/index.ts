@@ -30,3 +30,14 @@ export const HISTORI_HOME =
     : `${process.env.HOME}/.histori`);
 
 export const DAEMON_PORT = Number(process.env.HISTORI_PORT ?? 7777);
+
+// Fallbacks for when the preferred port can't be bound (Windows reserves
+// random port ranges for Hyper-V — e.g. 7777 often falls in an excluded
+// block). The daemon writes whichever port it actually bound to PORT_FILE,
+// and `histori open` reads it back.
+export const PORT_CANDIDATES = [DAEMON_PORT, 8787, 9696, 17777, 27777];
+
+export const PORT_FILE =
+  process.platform === "win32"
+    ? `${HISTORI_HOME}\\daemon.port`
+    : `${HISTORI_HOME}/daemon.port`;

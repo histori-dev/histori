@@ -1,10 +1,10 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DAEMON_PORT, HISTORI_HOME } from "@histori/shared";
+import { PORT_CANDIDATES, PORT_FILE, HISTORI_HOME } from "@histori/shared";
 import { openDb } from "@histori/db";
 import { startWatcher } from "./watcher.js";
 import { startGitWatcher } from "./git-watcher.js";
@@ -59,10 +59,27 @@ if (existsSync(join(webDist, "index.html"))) {
   );
 }
 
-const port = DAEMON_PORT;
-console.log(`[histori] daemon listening on http://localhost:${port}`);
-console.log(`[histori] watching ${HISTORI_HOME}/events.ndjson`);
-
 startWatcher(db);
 startGitWatcher(db);
-serve({ fetch: app.fetch, port });
+console.log(`[histori] watching ${HISTORI_HOME}/events.ndjson`);
+
+// Windows reserves random port blocks (Hyper-V) — walk the candidate list
+// until one binds, then record it so `histori open` knows where to look.
+function listen(candidates: number[]) {
+  const port = candidates[0];
+  const server = serve({ fetch: app.fetch, port, hostname: "127.0.0.1" }, (info) => {
+    writeFileSync(PORT_FILE, String(info.port));
+    console.log(`[histori] daemon listening on http://localhost:${info.port}`);
+  });
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    if ((err.code === "EACCES" || err.code === "EADDRINUSE") && candidates.length > 1) {
+      console.warn(`[histori] port ${port} unavailable (${err.code}), trying ${candidates[1]}`);
+      listen(candidates.slice(1));
+    } else {
+      console.error(`[histori] could not bind any port (tried ${PORT_CANDIDATES.join(", ")}):`, err);
+      process.exit(1);
+    }
+  });
+}
+
+listen(PORT_CANDIDATES);
