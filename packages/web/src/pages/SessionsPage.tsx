@@ -19,6 +19,11 @@ function shortDir(cwd: string) {
   return cwd.replace(/\\/g, "/").split("/").slice(-2).join("/");
 }
 
+function shortModel(model: string | null) {
+  if (!model) return "—";
+  return model.replace(/^claude-/, "").replace(/-\d{8}$/, "");
+}
+
 export default function SessionsPage() {
   const [allSessions, setAllSessions] = useState<Session[]>([]);
   const [results, setResults] = useState<Session[] | null>(null);
@@ -57,6 +62,8 @@ export default function SessionsPage() {
 
   const totalCost = allSessions.reduce((s, r) => s + r.costUsd, 0);
   const totalTokens = allSessions.reduce((s, r) => s + r.inputTokens + r.outputTokens, 0);
+  const totalAdded = allSessions.reduce((s, r) => s + r.linesAdded, 0);
+  const totalRemoved = allSessions.reduce((s, r) => s + r.linesRemoved, 0);
 
   return (
     <div className="min-h-screen">
@@ -91,6 +98,12 @@ export default function SessionsPage() {
                 <span>
                   <span className="text-zinc-200">{allSessions.length}</span> sessions
                 </span>
+                <span className="font-mono">
+                  <span className="text-emerald-500">+{fmtTokens(totalAdded)}</span>
+                  <span className="text-zinc-700">/</span>
+                  <span className="text-red-500">-{fmtTokens(totalRemoved)}</span>
+                  <span className="text-zinc-500 font-sans"> lines</span>
+                </span>
                 <span>
                   <span className="text-zinc-200">{fmtTokens(totalTokens)}</span> tokens
                 </span>
@@ -120,6 +133,7 @@ export default function SessionsPage() {
               <tr className="text-left text-xs text-zinc-500 border-b border-zinc-800">
                 <th className="pb-3 font-normal">Date</th>
                 <th className="pb-3 font-normal">Directory</th>
+                <th className="pb-3 font-normal">Changes</th>
                 <th className="pb-3 font-normal">Model</th>
                 <th className="pb-3 font-normal text-right">Tokens</th>
                 <th className="pb-3 font-normal text-right">Cost</th>
@@ -148,8 +162,22 @@ export default function SessionsPage() {
                       </span>
                     )}
                   </td>
+                  <td className="py-3 pr-6 whitespace-nowrap">
+                    {s.filesChanged > 0 ? (
+                      <span className="text-xs">
+                        <span className="text-zinc-400">{s.filesChanged} file{s.filesChanged === 1 ? "" : "s"}</span>{" "}
+                        <span className="font-mono">
+                          <span className="text-emerald-500">+{s.linesAdded}</span>
+                          <span className="text-zinc-700">/</span>
+                          <span className="text-red-500">-{s.linesRemoved}</span>
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-zinc-700 text-xs">—</span>
+                    )}
+                  </td>
                   <td className="py-3 pr-6 text-zinc-600 text-xs whitespace-nowrap">
-                    {s.model ?? "—"}
+                    {shortModel(s.model)}
                   </td>
                   <td className="py-3 pr-6 text-right text-zinc-400">
                     {fmtTokens(s.inputTokens + s.outputTokens)}

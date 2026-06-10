@@ -26,13 +26,35 @@ export function routes(db: Db) {
 
   app.get("/health", (c) => c.json({ ok: true }));
 
+  // What did the AI actually change? Attach per-session file-touch stats.
+  function withChangeStats<T extends { id: string }>(rows: T[]): T[] {
+    type Agg = { session_id: string; files: number; la: number; lr: number };
+    const touchAgg = db.$client
+      .prepare(
+        `SELECT session_id, count(DISTINCT path) files,
+                coalesce(sum(lines_added), 0) la, coalesce(sum(lines_removed), 0) lr
+         FROM file_touches GROUP BY session_id`,
+      )
+      .all() as Agg[];
+    const bySession = new Map(touchAgg.map((a) => [a.session_id, a]));
+    return rows.map((s) => {
+      const a = bySession.get(s.id);
+      return {
+        ...s,
+        filesChanged: a?.files ?? 0,
+        linesAdded: a?.la ?? 0,
+        linesRemoved: a?.lr ?? 0,
+      };
+    });
+  }
+
   app.get("/sessions", async (c) => {
     const rows = await db
       .select()
       .from(sessions)
       .orderBy(desc(sessions.startedAt))
       .limit(200);
-    return c.json(rows);
+    return c.json(withChangeStats(rows));
   });
 
   app.get("/sessions/:id", async (c) => {
@@ -78,7 +100,8 @@ export function routes(db: Db) {
 
     // Preserve FTS relevance order
     const byId = new Map(rows.map((r) => [r.id, r]));
-    return c.json(ids.map((id) => byId.get(id)).filter(Boolean));
+    const ordered = ids.map((id) => byId.get(id)).filter((r) => r != null);
+    return c.json(withChangeStats(ordered));
   });
 
   app.get("/memories", async (c) => {

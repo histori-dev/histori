@@ -11,6 +11,10 @@ export type Session = {
   costUsd: number;
   bookmarked: boolean;
   bookmarkLabel: string | null;
+  // What the AI changed in this session (aggregated from file touches)
+  filesChanged: number;
+  linesAdded: number;
+  linesRemoved: number;
 };
 
 export type HookEvent = {
